@@ -4,6 +4,9 @@
 
 <img width="1912" height="937" alt="image" src="https://github.com/user-attachments/assets/4417c643-b654-442f-86ba-bb2121df2bd0" />
 
+<img width="1904" height="930" alt="image" src="https://github.com/user-attachments/assets/32b32689-8e4f-4ba4-8563-3f3564795846" />
+
+
 ## ✨ 功能特色
 
 ### 🎯 核心功能
