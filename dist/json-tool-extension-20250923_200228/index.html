@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON工具 - 专业级JSON处理平台</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="icons/icon.svg">
+</head>
+<body>
+    <!-- 主容器 -->
+    <div class="app-container">
+        <!-- 头部导航 -->
+        <header class="header">
+            <div class="header-left">
+                <h1 class="logo">🔧 JSON工具</h1>
+                <div class="theme-switcher">
+                    <button id="themeToggle" class="theme-btn" title="切换主题">🌙</button>
+                </div>
+            </div>
+            <div class="header-center">
+                <nav class="main-nav">
+                    <button class="nav-btn active" data-tab="formatter">格式化</button>
+                    <button class="nav-btn" data-tab="compare">对比</button>
+                    <button class="nav-btn" data-tab="generator">生成器</button>
+                    <button class="nav-btn" data-tab="split">分隔栏</button>
+                </nav>
+            </div>
+            <div class="header-right">
+                <button class="action-btn" id="historyBtn" title="历史记录">📚</button>
+                <button class="action-btn" id="settingsBtn" title="设置">⚙️</button>
+                <button class="action-btn" id="helpBtn" title="帮助">❓</button>
+            </div>
+        </header>
+
+        <!-- 工具栏 -->
+        <div class="toolbar">
+            <div class="toolbar-section">
+                <button class="tool-btn" id="clearAll" title="清除所有">🗑️</button>
+            </div>
+            <div class="toolbar-section">
+                <button class="tool-btn" id="undoBtn" title="撤销">↶</button>
+                <button class="tool-btn" id="redoBtn" title="重做">↷</button>
+            </div>
+            <div class="toolbar-section">
+                <span class="status-info" id="statusInfo">就绪</span>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <main class="main-content">
+            <!-- 格式化页面 -->
+            <div class="tab-content active" id="formatter-content">
+                <div class="formatter-layout">
+                    <div class="editor-section">
+                        <div class="editor-header">
+                            <h3>JSON编辑器</h3>
+                        <div class="editor-actions">
+                                <button class="action-btn" id="formatBtn">美化</button>
+                                <button class="action-btn" id="compressBtn">压缩</button>
+                            </div>
+                        </div>
+                        <div class="editor-container">
+                            <div class="editor-with-gutter">
+                                <div class="editor-line-numbers" id="jsonEditorLines"></div>
+<textarea id="jsonEditor" placeholder="在这里输入或粘贴JSON数据..." spellcheck="false" wrap="off"></textarea>
+                            </div>
+                            <div class="editor-info">
+                                <span id="lineCount">行: 1</span>
+                                <span id="charCount">字符: 0</span>
+                                <span id="sizeInfo">大小: 0B</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="preview-section">
+                        <div class="preview-header">
+                            <h3>格式化预览</h3>
+                            <div class="preview-actions">
+                                <button class="action-btn" id="expandAll">展开全部</button>
+                                <button class="action-btn" id="collapseAll">折叠全部</button>
+                                <button class="action-btn" id="treeView">树形视图</button>
+                            </div>
+                        </div>
+                        <div class="preview-container">
+                            <div id="jsonPreview" class="json-preview"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="error-panel" id="errorPanel" style="display: none;">
+                    <div class="error-header">
+                        <h4>⚠️ 错误信息</h4>
+                        <button class="close-btn" id="closeError">×</button>
+                    </div>
+                    <div class="error-content" id="errorContent"></div>
+                </div>
+
+            </div>
+
+            <!-- 对比页面 -->
+            <div class="tab-content" id="compare-content">
+                <div class="compare-toolbar">
+                    <button class="action-btn primary" id="compareBtn">对比</button>
+                </div>
+                <div class="compare-layout">
+                    <div class="compare-left">
+                        <div class="compare-header">
+                            <h3>左侧JSON</h3>
+                            <div class="preview-actions">
+                                <button class="action-btn secondary" id="beautifyLeft">美化</button>
+                            </div>
+                        </div>
+                        <div class="compare-input-container">
+                            <div class="editor-with-gutter">
+                                <div class="editor-line-numbers" id="leftJsonLines"></div>
+                                <div class="editor-text-wrap">
+                                    <textarea id="leftJson" placeholder="输入或粘贴第一个JSON..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="compare-right">
+                        <div class="compare-header">
+                            <h3>右侧JSON</h3>
+                            <div class="preview-actions">
+                                <button class="action-btn secondary" id="beautifyRight">美化</button>
+                            </div>
+                        </div>
+                        <div class="compare-input-container">
+                            <div class="editor-with-gutter">
+                                <div class="editor-line-numbers" id="rightJsonLines"></div>
+                                <div class="editor-text-wrap">
+                                    <textarea id="rightJson" placeholder="输入或粘贴第二个JSON..." ></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 生成器页面 -->
+            <div class="tab-content" id="generator-content">
+                <div class="generator-layout">
+                    <div class="generator-sidebar">
+                        <h3>数据模板</h3>
+                        <div class="template-list">
+                            <button class="template-btn" data-template="user">用户信息</button>
+                            <button class="template-btn" data-template="product">商品数据</button>
+                            <button class="template-btn" data-template="order">订单记录</button>
+                            <button class="template-btn" data-template="address">地址信息</button>
+                            <button class="template-btn" data-template="company">公司信息</button>
+                            <button class="template-btn" data-template="article">文章内容</button>
+                            <button class="template-btn" data-template="api">API响应</button>
+                            <button class="template-btn" data-template="config">配置文件</button>
+                        </div>
+                        <div class="generator-options">
+                            <h4>生成选项</h4>
+                            <label>
+                                数量: <input type="number" id="generateCount" value="1" min="1" max="1000">
+                            </label>
+                            <label>
+                                <input type="checkbox" id="generateArray"> 生成数组
+                            </label>
+                            <label>
+                                <input type="checkbox" id="randomizeFields"> 随机字段
+                            </label>
+                            <label>
+                                语言:
+                                <select id="localeSelect">
+                                    <option value="zh_CN">中文</option>
+                                    <option value="en_US">英文</option>
+                                    <option value="ja_JP">日文</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="generator-main">
+                        <div class="generator-header">
+                            <h3>生成结果</h3>
+                            <div class="generator-actions">
+                                <button class="action-btn" id="generateBtn">生成数据</button>
+                                <button class="action-btn" id="useGenerated">使用</button>
+                            </div>
+                        </div>
+                        <div class="generated-content">
+                            <textarea id="generatedJson" placeholder="生成的JSON数据将显示在这里..." readonly></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 分隔栏页面 -->
+            <div class="tab-content" id="split-content">
+                <div class="multi-split-wrapper">
+                    <div class="multi-split-header">
+                        <h3>分隔栏</h3>
+                        <div class="multi-split-actions">
+                            <button class="action-btn" id="addSplitPane">添加分隔栏</button>
+                        </div>
+                    </div>
+                    <div id="multiSplitContainer" class="multi-split-container" aria-label="可拖拽多分隔栏容器"></div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- 侧边栏 -->
+        <aside class="sidebar" id="sidebar" style="display: none;">
+            <div class="sidebar-header">
+                <h3 id="sidebarTitle">侧边栏</h3>
+                <button class="close-btn" id="closeSidebar">×</button>
+            </div>
+            <div class="sidebar-content" id="sidebarContent"></div>
+        </aside>
+
+        <!-- 模态对话框 -->
+        <div class="modal" id="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">对话框</h3>
+                    <button class="close-btn" id="closeModal">×</button>
+                </div>
+                <div class="modal-body" id="modalBody"></div>
+                <div class="modal-footer" id="modalFooter">
+                    <button class="action-btn secondary" id="modalCancel">取消</button>
+                    <button class="action-btn primary" id="modalConfirm">确认</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 浮动通知 -->
+        <div class="notifications" id="notifications"></div>
+    </div>
+
+
+    <!-- JavaScript -->
+    <script src="scripts.js"></script>
+</body>
+</html>

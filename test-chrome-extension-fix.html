@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrome扩展修复测试</title>
+    <link rel="stylesheet" href="chrome-extension/popup-styles.css">
+    <style>
+        body {
+            margin: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .test-container {
+            max-width: 400px;
+            margin: 0 auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-header {
+            background: #f5f5f5;
+            padding: 10px 15px;
+            border-bottom: 1px solid #ddd;
+            font-weight: bold;
+        }
+        .test-note {
+            background: #e3f2fd;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            border-left: 4px solid #2196f3;
+        }
+        .test-controls {
+            margin: 15px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        .test-btn {
+            margin: 5px;
+            padding: 8px 12px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .test-btn:hover {
+            background: #1976d2;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-note">
+        <h3>Chrome扩展修复测试</h3>
+        <p><strong>测试内容：</strong></p>
+        <ol>
+            <li>JSON格式化预览的折叠/展开功能</li>
+            <li>撤销/重做历史记录功能</li>
+            <li>快捷键支持 (Ctrl+Z, Ctrl+Y, Ctrl+Shift+F)</li>
+        </ol>
+        <p><strong>测试JSON数据：</strong></p>
+        <pre>{"name":"测试用户","details":{"age":25,"hobbies":["读书","游戏"],"address":{"city":"北京","district":"朝阳区"}}}</pre>
+    </div>
+
+    <div class="test-controls">
+        <button class="test-btn" onclick="fillTestData()">填入测试数据</button>
+        <button class="test-btn" onclick="testFormat()">测试格式化</button>
+        <button class="test-btn" onclick="testUndo()">测试撤销</button>
+        <button class="test-btn" onclick="testRedo()">测试重做</button>
+        <button class="test-btn" onclick="testCollapse()">测试折叠</button>
+    </div>
+
+    <div class="test-container">
+        <div class="test-header">Chrome扩展模拟界面</div>
+        <div class="popup-container">
+            <!-- 头部 -->
+            <header class="popup-header">
+                <div class="logo">
+                    <span class="logo-icon">🔧</span>
+                    <h1>JSON工具</h1>
+                </div>
+                <button class="theme-toggle" id="themeToggle" title="切换主题">🌙</button>
+            </header>
+
+            <!-- 标签导航 -->
+            <nav class="tab-nav">
+                <button class="tab-btn active" data-tab="formatter">格式化</button>
+                <button class="tab-btn" data-tab="compare">对比</button>
+                <button class="tab-btn" data-tab="generator">生成器</button>
+            </nav>
+
+            <!-- 格式化页面 -->
+            <div class="tab-content active" id="formatter-content">
+                <div class="input-section">
+                    <textarea id="jsonInput" placeholder="输入JSON数据..." rows="8"></textarea>
+                    <div class="action-row">
+                        <button class="btn primary" id="formatBtn">美化</button>
+                        <button class="btn secondary" id="compressBtn">压缩</button>
+                        <button class="btn secondary" id="validateBtn">验证</button>
+                    </div>
+                </div>
+                <div class="output-section">
+                    <div class="output-header">
+                        <span>输出结果</span>
+                        <button class="btn-small" id="copyResult">复制</button>
+                        <button class="btn-small" id="undoBtn">撤销</button>
+                        <button class="btn-small" id="redoBtn">重做</button>
+                    </div>
+                    <div id="jsonOutput" class="json-output"></div>
+                </div>
+            </div>
+
+            <!-- 对比页面 -->
+            <div class="tab-content" id="compare-content">
+                <div class="compare-inputs">
+                    <div class="input-group">
+                        <label>JSON 1</label>
+                        <textarea id="json1" placeholder="第一个JSON..." rows="4"></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>JSON 2</label>
+                        <textarea id="json2" placeholder="第二个JSON..." rows="4"></textarea>
+                    </div>
+                </div>
+                <div class="action-row">
+                    <button class="btn primary" id="compareBtn">对比</button>
+                    <button class="btn secondary" id="swapBtn">交换</button>
+                </div>
+                <div class="compare-result" id="compareResult"></div>
+            </div>
+
+            <!-- 生成器页面 -->
+            <div class="tab-content" id="generator-content">
+                <div class="generator-options">
+                    <div class="input-group">
+                        <label>模板类型</label>
+                        <select id="templateSelect">
+                            <option value="user">用户信息</option>
+                            <option value="product">商品数据</option>
+                            <option value="order">订单记录</option>
+                        </select>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group small">
+                            <label>数量</label>
+                            <input type="number" id="generateCount" value="1" min="1" max="100">
+                        </div>
+                        <div class="checkbox-group">
+                            <label>
+                                <input type="checkbox" id="generateArray"> 生成数组
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="action-row">
+                    <button class="btn primary" id="generateBtn">生成数据</button>
+                    <button class="btn secondary" id="useGeneratedBtn">使用数据</button>
+                </div>
+                <div class="generated-output">
+                    <textarea id="generatedOutput" placeholder="生成的数据将显示在这里..." rows="6" readonly></textarea>
+                </div>
+            </div>
+
+            <!-- 状态栏 -->
+            <div class="status-bar">
+                <span id="statusText">就绪</span>
+                <div class="quick-actions">
+                    <button class="btn-icon" id="settingsBtn" title="设置">⚙️</button>
+                    <button class="btn-icon" id="openFullBtn" title="打开完整版">🔗</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="chrome-extension/popup.js"></script>
+    <script>
+        // 测试功能
+        function fillTestData() {
+            const testData = '{"name":"测试用户","details":{"age":25,"hobbies":["读书","游戏"],"address":{"city":"北京","district":"朝阳区"}}}';
+            document.getElementById('jsonInput').value = testData;
+            if (window.jsonTool) {
+                window.jsonTool.realTimeValidation(testData);
+            }
+        }
+
+        function testFormat() {
+            if (window.jsonTool) {
+                window.jsonTool.formatJSON();
+                console.log('格式化测试完成，检查预览区域是否显示树形结构');
+            }
+        }
+
+        function testUndo() {
+            if (window.jsonTool) {
+                window.jsonTool.undo();
+                console.log('撤销测试完成，检查是否恢复到上一个状态');
+            }
+        }
+
+        function testRedo() {
+            if (window.jsonTool) {
+                window.jsonTool.redo();
+                console.log('重做测试完成，检查是否前进到下一个状态');
+            }
+        }
+
+        function testCollapse() {
+            // 查找所有折叠按钮并测试
+            const collapseButtons = document.querySelectorAll('.json-collapsible');
+            if (collapseButtons.length > 0) {
+                collapseButtons.forEach((btn, index) => {
+                    console.log(`测试折叠按钮 ${index + 1}`);
+                    btn.click();
+                });
+                console.log('折叠测试完成，检查内容是否正确折叠/展开');
+            } else {
+                console.log('没有找到折叠按钮，请先格式化JSON数据');
+            }
+        }
+
+        // 添加键盘事件测试提示
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                console.log('检测到撤销快捷键: Ctrl/Cmd+Z');
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                console.log('检测到重做快捷键: Ctrl/Cmd+Y');
+            }
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
+                console.log('检测到格式化快捷键: Ctrl/Cmd+Shift+F');
+            }
+        });
+
+        console.log('Chrome扩展修复测试页面已加载');
+        console.log('使用F12打开开发者工具查看测试日志');
+    </script>
+</body>
+</html>

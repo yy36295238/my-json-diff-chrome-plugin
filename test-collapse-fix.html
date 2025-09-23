@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON折叠功能修复测试</title>
+    <link rel="stylesheet" href="styles-simple.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: var(--bg-color);
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .test-section {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .test-title {
+            color: var(--text-color);
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        .json-editor {
+            width: 100%;
+            height: 200px;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 14px;
+            background: var(--editor-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 12px;
+            resize: vertical;
+        }
+        .preview-area {
+            background: var(--editor-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 15px;
+            min-height: 200px;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 14px;
+            overflow: auto;
+        }
+        .test-buttons {
+            margin: 15px 0;
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 8px 16px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <h1>JSON折叠功能修复测试</h1>
+
+    <div class="test-container">
+        <div class="test-section">
+            <h3 class="test-title">测试用例1: 单个属性对象</h3>
+            <textarea class="json-editor" id="editor1" placeholder="输入JSON数据进行测试...">{"user": {"name": "张三", "age": 25}}</textarea>
+            <div class="test-buttons">
+                <button class="btn" onclick="testCase1()">格式化并测试</button>
+            </div>
+            <div class="preview-area" id="preview1">预览区域</div>
+        </div>
+
+        <div class="test-section">
+            <h3 class="test-title">测试用例2: 复杂嵌套结构</h3>
+            <textarea class="json-editor" id="editor2" placeholder="输入JSON数据进行测试...">{"users": [{"name": "张三", "profile": {"age": 25, "address": {"city": "北京", "district": "朝阳区"}}}, {"name": "李四", "profile": {"age": 30}}], "total": 2}</textarea>
+            <div class="test-buttons">
+                <button class="btn" onclick="testCase2()">格式化并测试</button>
+            </div>
+            <div class="preview-area" id="preview2">预览区域</div>
+        </div>
+
+        <div class="test-section">
+            <h3 class="test-title">测试用例3: 数组结构</h3>
+            <textarea class="json-editor" id="editor3" placeholder="输入JSON数据进行测试...">[{"id": 1, "data": {"value": "test"}}, {"id": 2, "data": {"value": "demo", "nested": {"deep": "value"}}}]</textarea>
+            <div class="test-buttons">
+                <button class="btn" onclick="testCase3()">格式化并测试</button>
+            </div>
+            <div class="preview-area" id="preview3">预览区域</div>
+        </div>
+
+        <div class="test-section">
+            <h3 class="test-title">测试用例4: 混合类型</h3>
+            <textarea class="json-editor" id="editor4" placeholder="输入JSON数据进行测试...">{"string": "hello", "number": 123, "boolean": true, "null": null, "array": [1, 2, 3], "object": {"nested": "value"}}</textarea>
+            <div class="test-buttons">
+                <button class="btn" onclick="testCase4()">格式化并测试</button>
+            </div>
+            <div class="preview-area" id="preview4">预览区域</div>
+        </div>
+    </div>
+
+    <script src="scripts.js"></script>
+    <script>
+        // 初始化应用
+        const app = new JSONToolApp();
+
+        function testCase1() {
+            testJSON('editor1', 'preview1');
+        }
+
+        function testCase2() {
+            testJSON('editor2', 'preview2');
+        }
+
+        function testCase3() {
+            testJSON('editor3', 'preview3');
+        }
+
+        function testCase4() {
+            testJSON('editor4', 'preview4');
+        }
+
+        function testJSON(editorId, previewId) {
+            const editor = document.getElementById(editorId);
+            const preview = document.getElementById(previewId);
+            const jsonText = editor.value.trim();
+
+            if (!jsonText) {
+                preview.innerHTML = '<div style="color: var(--error-color);">请输入JSON数据</div>';
+                return;
+            }
+
+            try {
+                const parsed = JSON.parse(jsonText);
+                const formatted = JSON.stringify(parsed, null, 2);
+                editor.value = formatted;
+
+                // 使用应用的渲染方法
+                preview.innerHTML = app.renderJSONTree(parsed);
+
+                console.log(`${editorId} 测试完成，JSON结构：`, parsed);
+            } catch (error) {
+                preview.innerHTML = `<div style="color: var(--error-color);">JSON解析错误: ${error.message}</div>`;
+            }
+        }
+
+        // 页面加载完成后自动运行测试
+        document.addEventListener('DOMContentLoaded', function() {
+            testCase1();
+            testCase2();
+            testCase3();
+            testCase4();
+        });
+    </script>
+</body>
+</html>

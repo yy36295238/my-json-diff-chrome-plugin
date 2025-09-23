@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON工具简化版测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-title {
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+        }
+        .test-item {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #007acc;
+        }
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        .warning { border-left-color: #ffc107; }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005999;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .result {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>JSON工具简化版功能测试</h1>
+
+    <div class="test-section">
+        <h2 class="test-title">1. JSON格式化功能测试</h2>
+
+        <div class="test-item">
+            <h3>测试JSON美化</h3>
+            <textarea id="formatTestInput" placeholder="输入待格式化的JSON">{"name":"张三","age":25,"skills":["JavaScript","Python"],"address":{"city":"北京","district":"朝阳区"}}</textarea>
+            <button onclick="testFormat()">测试格式化</button>
+            <div class="result" id="formatResult"></div>
+        </div>
+
+        <div class="test-item">
+            <h3>测试JSON压缩</h3>
+            <textarea id="compressTestInput" placeholder="输入待压缩的JSON">{
+  "name": "张三",
+  "age": 25,
+  "skills": [
+    "JavaScript",
+    "Python"
+  ],
+  "address": {
+    "city": "北京",
+    "district": "朝阳区"
+  }
+}</textarea>
+            <button onclick="testCompress()">测试压缩</button>
+            <div class="result" id="compressResult"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2 class="test-title">2. JSON对比功能测试</h2>
+
+        <div class="test-item">
+            <h3>测试JSON差异对比</h3>
+            <div style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <label>原始JSON：</label>
+                    <textarea id="compareLeft">{"name":"张三","age":25,"skills":["JavaScript"],"city":"北京"}</textarea>
+                </div>
+                <div style="flex: 1;">
+                    <label>对比JSON：</label>
+                    <textarea id="compareRight">{"name":"李四","age":26,"skills":["JavaScript","Python"],"country":"中国"}</textarea>
+                </div>
+            </div>
+            <button onclick="testCompare()">测试对比</button>
+            <div class="result" id="compareResult"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2 class="test-title">3. 数据生成功能测试</h2>
+
+        <div class="test-item">
+            <h3>测试用户数据生成</h3>
+            <button onclick="testGenerateUser()">生成用户数据</button>
+            <div class="result" id="userResult"></div>
+        </div>
+
+        <div class="test-item">
+            <h3>测试产品数据生成</h3>
+            <button onclick="testGenerateProduct()">生成产品数据</button>
+            <div class="result" id="productResult"></div>
+        </div>
+
+        <div class="test-item">
+            <h3>测试订单数据生成</h3>
+            <button onclick="testGenerateOrder()">生成订单数据</button>
+            <div class="result" id="orderResult"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2 class="test-title">4. 主题切换测试</h2>
+
+        <div class="test-item">
+            <button onclick="testTheme()">测试主题切换</button>
+            <div id="themeResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // 测试JSON格式化
+        function testFormat() {
+            const input = document.getElementById('formatTestInput').value;
+            const result = document.getElementById('formatResult');
+
+            try {
+                const parsed = JSON.parse(input);
+                const formatted = JSON.stringify(parsed, null, 2);
+                result.textContent = formatted;
+                result.style.color = 'green';
+            } catch (error) {
+                result.textContent = '错误: ' + error.message;
+                result.style.color = 'red';
+            }
+        }
+
+        // 测试JSON压缩
+        function testCompress() {
+            const input = document.getElementById('compressTestInput').value;
+            const result = document.getElementById('compressResult');
+
+            try {
+                const parsed = JSON.parse(input);
+                const compressed = JSON.stringify(parsed);
+                result.textContent = compressed;
+                result.style.color = 'green';
+            } catch (error) {
+                result.textContent = '错误: ' + error.message;
+                result.style.color = 'red';
+            }
+        }
+
+        // 测试JSON对比
+        function testCompare() {
+            const left = document.getElementById('compareLeft').value;
+            const right = document.getElementById('compareRight').value;
+            const result = document.getElementById('compareResult');
+
+            try {
+                const leftObj = JSON.parse(left);
+                const rightObj = JSON.parse(right);
+
+                // 简单的对比逻辑
+                const leftKeys = Object.keys(leftObj);
+                const rightKeys = Object.keys(rightObj);
+
+                const added = rightKeys.filter(key => !leftKeys.includes(key));
+                const removed = leftKeys.filter(key => !rightKeys.includes(key));
+                const modified = leftKeys.filter(key =>
+                    rightKeys.includes(key) && JSON.stringify(leftObj[key]) !== JSON.stringify(rightObj[key])
+                );
+
+                let compareText = '对比结果:\n';
+                if (added.length > 0) compareText += `新增字段: ${added.join(', ')}\n`;
+                if (removed.length > 0) compareText += `删除字段: ${removed.join(', ')}\n`;
+                if (modified.length > 0) compareText += `修改字段: ${modified.join(', ')}\n`;
+                if (added.length === 0 && removed.length === 0 && modified.length === 0) {
+                    compareText += '两个JSON完全相同';
+                }
+
+                result.textContent = compareText;
+                result.style.color = 'blue';
+            } catch (error) {
+                result.textContent = '错误: ' + error.message;
+                result.style.color = 'red';
+            }
+        }
+
+        // 测试用户数据生成
+        function testGenerateUser() {
+            const userData = {
+                "id": Math.floor(Math.random() * 10000),
+                "name": "张三",
+                "email": "zhangsan@example.com",
+                "age": Math.floor(Math.random() * 50) + 18,
+                "phone": "13800138000",
+                "address": {
+                    "city": "北京",
+                    "district": "朝阳区",
+                    "street": "某某街道123号"
+                },
+                "createdAt": new Date().toISOString()
+            };
+
+            document.getElementById('userResult').textContent = JSON.stringify(userData, null, 2);
+            document.getElementById('userResult').style.color = 'green';
+        }
+
+        // 测试产品数据生成
+        function testGenerateProduct() {
+            const productData = {
+                "id": Math.floor(Math.random() * 10000),
+                "name": "测试产品",
+                "price": (Math.random() * 1000).toFixed(2),
+                "category": "电子产品",
+                "description": "这是一个测试产品的描述",
+                "inStock": Math.random() > 0.5,
+                "tags": ["热销", "推荐"],
+                "createdAt": new Date().toISOString()
+            };
+
+            document.getElementById('productResult').textContent = JSON.stringify(productData, null, 2);
+            document.getElementById('productResult').style.color = 'green';
+        }
+
+        // 测试订单数据生成
+        function testGenerateOrder() {
+            const orderData = {
+                "orderId": "ORD" + Math.floor(Math.random() * 100000),
+                "userId": Math.floor(Math.random() * 1000),
+                "items": [
+                    {
+                        "productId": Math.floor(Math.random() * 100),
+                        "name": "商品1",
+                        "quantity": Math.floor(Math.random() * 5) + 1,
+                        "price": (Math.random() * 100).toFixed(2)
+                    }
+                ],
+                "total": (Math.random() * 500).toFixed(2),
+                "status": "pending",
+                "createdAt": new Date().toISOString()
+            };
+
+            document.getElementById('orderResult').textContent = JSON.stringify(orderData, null, 2);
+            document.getElementById('orderResult').style.color = 'green';
+        }
+
+        // 测试主题切换
+        function testTheme() {
+            const result = document.getElementById('themeResult');
+            const currentTheme = document.body.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+            document.body.setAttribute('data-theme', newTheme);
+
+            if (newTheme === 'dark') {
+                document.body.style.background = '#2d3748';
+                document.body.style.color = '#e2e8f0';
+            } else {
+                document.body.style.background = '#f5f5f5';
+                document.body.style.color = '#333';
+            }
+
+            result.textContent = `主题已切换为: ${newTheme}`;
+            result.style.color = newTheme === 'dark' ? '#4fd1c7' : '#007acc';
+        }
+
+        // 页面加载完成后运行所有测试
+        window.addEventListener('load', () => {
+            console.log('简化版JSON工具测试页面已加载');
+
+            // 自动运行基础测试
+            setTimeout(() => {
+                testFormat();
+                testCompress();
+                testCompare();
+                testGenerateUser();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

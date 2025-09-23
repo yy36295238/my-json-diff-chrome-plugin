@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>增强版JSON对比功能测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            border-radius: 16px 16px 0 0;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            margin: 0 0 10px 0;
+            color: #1e293b;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .header p {
+            margin: 0;
+            color: #64748b;
+            font-size: 16px;
+        }
+        .content {
+            background: white;
+            border-radius: 0 0 16px 16px;
+            padding: 40px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        .test-case {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 25px;
+            background: #fafafa;
+            position: relative;
+        }
+        .test-case h3 {
+            margin: 0 0 20px 0;
+            color: #1e293b;
+            font-size: 18px;
+            font-weight: 600;
+            border-bottom: 2px solid #2563eb;
+            padding-bottom: 8px;
+        }
+        .json-examples {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .json-block {
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .json-block h4 {
+            margin: 0 0 10px 0;
+            color: #374151;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .json-block pre {
+            margin: 0;
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #1f2937;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .copy-btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+        .copy-btn:hover {
+            background: #1d4ed8;
+        }
+        .expected {
+            background: #f0f9ff;
+            border: 1px solid #0891b2;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        .expected h4 {
+            margin: 0 0 10px 0;
+            color: #0891b2;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .diff-types {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .diff-tag {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .diff-tag.added { background: rgba(16, 185, 129, 0.2); color: #059669; }
+        .diff-tag.removed { background: rgba(239, 68, 68, 0.2); color: #dc2626; }
+        .diff-tag.modified { background: rgba(245, 158, 11, 0.2); color: #d97706; }
+
+        .instructions {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border: 1px solid #f59e0b;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 40px;
+        }
+        .instructions h3 {
+            margin: 0 0 15px 0;
+            color: #92400e;
+            font-size: 18px;
+        }
+        .instructions ol {
+            margin: 0;
+            padding-left: 20px;
+            color: #78350f;
+        }
+        .instructions li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+        }
+        .feature {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        .feature-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        .feature h4 {
+            margin: 0 0 8px 0;
+            color: #1e293b;
+            font-size: 16px;
+        }
+        .feature p {
+            margin: 0;
+            color: #64748b;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: white;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 增强版JSON对比功能</h1>
+            <p>基于JSON结构的深度对比，参考主流对比工具设计</p>
+        </div>
+
+        <div class="content">
+            <div class="instructions">
+                <h3>📖 测试指南</h3>
+                <ol>
+                    <li>打开主应用 (index.html) 并切换到"对比"标签</li>
+                    <li>复制下面测试用例的JSON到左右输入框</li>
+                    <li>点击"对比"按钮查看结构化差异高亮</li>
+                    <li>验证高亮区域是否与预期差异类型匹配</li>
+                    <li>测试滚动同步和交互体验</li>
+                </ol>
+            </div>
+
+            <div class="test-grid">
+                <div class="test-case">
+                    <h3>基础字段对比</h3>
+                    <div class="json-examples">
+                        <div class="json-block">
+                            <h4>左侧JSON</h4>
+                            <pre>{
+  "name": "张三",
+  "age": 25,
+  "city": "北京",
+  "active": true
+}</pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this, 'left1')">复制到左侧</button>
+                        </div>
+                        <div class="json-block">
+                            <h4>右侧JSON</h4>
+                            <pre>{
+  "name": "张三",
+  "age": 26,
+  "city": "上海",
+  "active": true,
+  "email": "zhang@example.com"
+}</pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this, 'right1')">复制到右侧</button>
+                        </div>
+                    </div>
+                    <div class="expected">
+                        <h4>预期差异</h4>
+                        <div class="diff-types">
+                            <span class="diff-tag modified">age: 修改</span>
+                            <span class="diff-tag modified">city: 修改</span>
+                            <span class="diff-tag added">email: 新增</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-case">
+                    <h3>嵌套对象对比</h3>
+                    <div class="json-examples">
+                        <div class="json-block">
+                            <h4>左侧JSON</h4>
+                            <pre>{
+  "user": {
+    "name": "李四",
+    "profile": {
+      "age": 30,
+      "city": "北京"
+    }
+  },
+  "settings": {
+    "theme": "dark",
+    "lang": "zh"
+  }
+}</pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this, 'left2')">复制到左侧</button>
+                        </div>
+                        <div class="json-block">
+                            <h4>右侧JSON</h4>
+                            <pre>{
+  "user": {
+    "name": "李四",
+    "profile": {
+      "age": 31,
+      "city": "上海",
+      "country": "中国"
+    }
+  },
+  "config": {
+    "theme": "light"
+  }
+}</pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this, 'right2')">复制到右侧</button>
+                        </div>
+                    </div>
+                    <div class="expected">
+                        <h4>预期差异</h4>
+                        <div class="diff-types">
+                            <span class="diff-tag modified">profile.age: 修改</span>
+                            <span class="diff-tag modified">profile.city: 修改</span>
+                            <span class="diff-tag added">profile.country: 新增</span>
+                            <span class="diff-tag removed">settings: 删除</span>
+                            <span class="diff-tag added">config: 新增</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-case">
+                    <h3>数组结构对比</h3>
+                    <div class="json-examples">
+                        <div class="json-block">
+                            <h4>左侧JSON</h4>
+                            <pre>{
+  "fruits": ["apple", "banana"],
+  "colors": ["red", "green", "blue"],
+  "count": 5
+}</pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this, 'left3')">复制到左侧</button>
+                        </div>
+                        <div class="json-block">
+                            <h4>右侧JSON</h4>
+                            <pre>{
+  "fruits": ["apple", "orange", "banana", "grape"],
+  "colors": ["red", "yellow", "blue"],
+  "count": 7,
+  "total": 12
+}</pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this, 'right3')">复制到右侧</button>
+                        </div>
+                    </div>
+                    <div class="expected">
+                        <h4>预期差异</h4>
+                        <div class="diff-types">
+                            <span class="diff-tag modified">fruits[1]: 修改</span>
+                            <span class="diff-tag added">fruits[2]: 新增</span>
+                            <span class="diff-tag added">fruits[3]: 新增</span>
+                            <span class="diff-tag modified">colors[1]: 修改</span>
+                            <span class="diff-tag modified">count: 修改</span>
+                            <span class="diff-tag added">total: 新增</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-case">
+                    <h3>复杂混合结构</h3>
+                    <div class="json-examples">
+                        <div class="json-block">
+                            <h4>左侧JSON</h4>
+                            <pre>{
+  "users": [
+    {"id": 1, "name": "Alice"},
+    {"id": 2, "name": "Bob"}
+  ],
+  "meta": {
+    "version": "1.0",
+    "enabled": true
+  }
+}</pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this, 'left4')">复制到左侧</button>
+                        </div>
+                        <div class="json-block">
+                            <h4>右侧JSON</h4>
+                            <pre>{
+  "users": [
+    {"id": 1, "name": "Alice", "email": "alice@example.com"},
+    {"id": 3, "name": "Charlie"}
+  ],
+  "meta": {
+    "version": "2.0",
+    "enabled": false,
+    "updated": "2024-01-01"
+  }
+}</pre>
+                            <button class="copy-btn" onclick="copyToClipboard(this, 'right4')">复制到右侧</button>
+                        </div>
+                    </div>
+                    <div class="expected">
+                        <h4>预期差异</h4>
+                        <div class="diff-types">
+                            <span class="diff-tag added">users[0].email: 新增</span>
+                            <span class="diff-tag modified">users[1]: 修改</span>
+                            <span class="diff-tag modified">meta.version: 修改</span>
+                            <span class="diff-tag modified">meta.enabled: 修改</span>
+                            <span class="diff-tag added">meta.updated: 新增</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">🎯</div>
+                    <h4>结构化对比</h4>
+                    <p>基于JSON结构分析，准确识别字段级别的差异</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🌈</div>
+                    <h4>智能高亮</h4>
+                    <p>根据差异类型使用不同颜色高亮显示</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🔍</div>
+                    <h4>深度检测</h4>
+                    <p>支持嵌套对象、数组等复杂数据结构</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">⚡</div>
+                    <h4>实时对比</h4>
+                    <p>即时显示差异，无延迟的用户体验</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>🔧 增强版JSON对比功能 | 基于结构化算法设计</p>
+    </div>
+
+    <script>
+        const testData = {
+            left1: '{\n  "name": "张三",\n  "age": 25,\n  "city": "北京",\n  "active": true\n}',
+            right1: '{\n  "name": "张三",\n  "age": 26,\n  "city": "上海",\n  "active": true,\n  "email": "zhang@example.com"\n}',
+            left2: '{\n  "user": {\n    "name": "李四",\n    "profile": {\n      "age": 30,\n      "city": "北京"\n    }\n  },\n  "settings": {\n    "theme": "dark",\n    "lang": "zh"\n  }\n}',
+            right2: '{\n  "user": {\n    "name": "李四",\n    "profile": {\n      "age": 31,\n      "city": "上海",\n      "country": "中国"\n    }\n  },\n  "config": {\n    "theme": "light"\n  }\n}',
+            left3: '{\n  "fruits": ["apple", "banana"],\n  "colors": ["red", "green", "blue"],\n  "count": 5\n}',
+            right3: '{\n  "fruits": ["apple", "orange", "banana", "grape"],\n  "colors": ["red", "yellow", "blue"],\n  "count": 7,\n  "total": 12\n}',
+            left4: '{\n  "users": [\n    {"id": 1, "name": "Alice"},\n    {"id": 2, "name": "Bob"}\n  ],\n  "meta": {\n    "version": "1.0",\n    "enabled": true\n  }\n}',
+            right4: '{\n  "users": [\n    {"id": 1, "name": "Alice", "email": "alice@example.com"},\n    {"id": 3, "name": "Charlie"}\n  ],\n  "meta": {\n    "version": "2.0",\n    "enabled": false,\n    "updated": "2024-01-01"\n  }\n}'
+        };
+
+        function copyToClipboard(button, dataKey) {
+            const text = testData[dataKey];
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.textContent;
+                button.textContent = '已复制!';
+                button.style.background = '#10b981';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '#2563eb';
+                }, 1500);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修复后的对比功能测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .test-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .header p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        .test-content {
+            padding: 40px;
+        }
+        .test-case {
+            margin-bottom: 50px;
+            padding: 30px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fafafa;
+            position: relative;
+        }
+        .test-case:before {
+            content: attr(data-case);
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: #2563eb;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .test-title {
+            color: #1e293b;
+            margin: 0 0 25px 0;
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .json-pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .json-input {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #2563eb;
+        }
+        .json-input h4 {
+            margin: 0 0 15px 0;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .json-input pre {
+            margin: 0;
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #1f2937;
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid #e5e7eb;
+        }
+        .expected {
+            background: #f0f9ff;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #06b6d4;
+        }
+        .expected h4 {
+            margin: 0 0 15px 0;
+            color: #0891b2;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .expected-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .expected-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e0f2fe;
+            position: relative;
+            padding-left: 25px;
+        }
+        .expected-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #059669;
+            font-weight: bold;
+        }
+        .expected-list li:last-child {
+            border-bottom: none;
+        }
+        .color-legend {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .added { background-color: rgba(16, 185, 129, 0.2); }
+        .removed { background-color: rgba(239, 68, 68, 0.2); }
+        .modified { background-color: rgba(245, 158, 11, 0.2); }
+        .empty { background-color: rgba(156, 163, 175, 0.2); }
+
+        .instructions {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            border: 1px solid #f59e0b;
+        }
+        .instructions h3 {
+            margin: 0 0 15px 0;
+            color: #92400e;
+            font-size: 18px;
+        }
+        .instructions ol {
+            margin: 0;
+            padding-left: 20px;
+            color: #78350f;
+        }
+        .instructions li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .footer {
+            background: #f8fafc;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+            color: #64748b;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="header">
+            <h1>🔧 修复后的对比功能测试</h1>
+            <p>验证重复数据问题修复和功能完整性</p>
+        </div>
+
+        <div class="test-content">
+            <div class="instructions">
+                <h3>📋 测试步骤</h3>
+                <ol>
+                    <li>打开主应用 (index.html)</li>
+                    <li>切换到"对比"标签</li>
+                    <li>依次测试下面的测试用例</li>
+                    <li>确认高亮显示正确，无重复数据</li>
+                    <li>验证空行处理正常</li>
+                </ol>
+            </div>
+
+            <div class="test-case" data-case="测试1">
+                <h2 class="test-title">基本字段修改测试</h2>
+                <div class="json-pair">
+                    <div class="json-input">
+                        <h4>左侧JSON</h4>
+                        <pre>{
+  "name": "张三",
+  "age": 25,
+  "city": "北京"
+}</pre>
+                    </div>
+                    <div class="json-input">
+                        <h4>右侧JSON</h4>
+                        <pre>{
+  "name": "张三",
+  "age": 26,
+  "city": "上海",
+  "email": "zhang@example.com"
+}</pre>
+                    </div>
+                </div>
+                <div class="expected">
+                    <h4>预期结果</h4>
+                    <ul class="expected-list">
+                        <li>name字段保持不变（无高亮）</li>
+                        <li>age字段显示修改（黄色高亮）</li>
+                        <li>city字段显示修改（黄色高亮）</li>
+                        <li>右侧email字段显示新增（绿色高亮）</li>
+                        <li>左右两侧行数对齐，无重复数据</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="test-case" data-case="测试2">
+                <h2 class="test-title">数组长度不同测试</h2>
+                <div class="json-pair">
+                    <div class="json-input">
+                        <h4>左侧JSON</h4>
+                        <pre>{
+  "items": ["apple", "banana"],
+  "count": 2
+}</pre>
+                    </div>
+                    <div class="json-input">
+                        <h4>右侧JSON</h4>
+                        <pre>{
+  "items": ["apple", "orange", "banana", "grape"],
+  "count": 4
+}</pre>
+                    </div>
+                </div>
+                <div class="expected">
+                    <h4>预期结果</h4>
+                    <ul class="expected-list">
+                        <li>items数组显示修改（黄色高亮）</li>
+                        <li>count字段显示修改（黄色高亮）</li>
+                        <li>两侧行数完全对齐</li>
+                        <li>无重复显示</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="test-case" data-case="测试3">
+                <h2 class="test-title">对象删除测试</h2>
+                <div class="json-pair">
+                    <div class="json-input">
+                        <h4>左侧JSON</h4>
+                        <pre>{
+  "user": {
+    "name": "李四",
+    "age": 30
+  },
+  "settings": {
+    "theme": "dark",
+    "language": "zh"
+  }
+}</pre>
+                    </div>
+                    <div class="json-input">
+                        <h4>右侧JSON</h4>
+                        <pre>{
+  "user": {
+    "name": "李四",
+    "age": 30
+  }
+}</pre>
+                    </div>
+                </div>
+                <div class="expected">
+                    <h4>预期结果</h4>
+                    <ul class="expected-list">
+                        <li>user对象保持不变（无高亮）</li>
+                        <li>左侧settings对象显示删除（红色高亮）</li>
+                        <li>右侧对应位置显示空行（灰色背景）</li>
+                        <li>行数完全对齐</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="test-case" data-case="测试4">
+                <h2 class="test-title">新增对象测试</h2>
+                <div class="json-pair">
+                    <div class="json-input">
+                        <h4>左侧JSON</h4>
+                        <pre>{
+  "basic": "info"
+}</pre>
+                    </div>
+                    <div class="json-input">
+                        <h4>右侧JSON</h4>
+                        <pre>{
+  "basic": "info",
+  "extra": {
+    "feature": "new",
+    "enabled": true
+  }
+}</pre>
+                    </div>
+                </div>
+                <div class="expected">
+                    <h4>预期结果</h4>
+                    <ul class="expected-list">
+                        <li>basic字段保持不变</li>
+                        <li>右侧extra对象显示新增（绿色高亮）</li>
+                        <li>左侧对应位置显示空行</li>
+                        <li>完美对齐，无数据重复</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div style="background: #f0f9ff; padding: 25px; border-radius: 12px; margin-top: 40px;">
+                <h3 style="color: #0891b2; margin: 0 0 20px 0;">🎨 颜色图例</h3>
+                <div class="color-legend">
+                    <div class="color-item">
+                        <div class="color-box added"></div>
+                        <span>新增内容</span>
+                    </div>
+                    <div class="color-item">
+                        <div class="color-box removed"></div>
+                        <span>删除内容</span>
+                    </div>
+                    <div class="color-item">
+                        <div class="color-box modified"></div>
+                        <span>修改内容</span>
+                    </div>
+                    <div class="color-item">
+                        <div class="color-box empty"></div>
+                        <span>空行占位</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>✅ 修复完成：移除重复数据问题，优化行对齐算法，添加空行处理</p>
+        </div>
+    </div>
+</body>
+</html>
