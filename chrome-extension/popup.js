@@ -57,6 +57,14 @@ class JSONToolPopup {
             });
         }
 
+        // 移除转义符功能
+        const removeEscapeBtn = document.getElementById('removeEscapeBtn');
+        if (removeEscapeBtn) {
+            removeEscapeBtn.addEventListener('click', () => {
+                this.removeEscapeCharacters();
+            });
+        }
+
         // 验证功能
         const validateBtn = document.getElementById('validateBtn');
         if (validateBtn) {
@@ -250,6 +258,63 @@ class JSONToolPopup {
             this.updateStatus('JSON压缩完成');
         } catch (error) {
             this.showError('JSON压缩失败: ' + error.message);
+        }
+    }
+
+    // 移除转义符
+    removeEscapeCharacters() {
+        const editor = document.getElementById('jsonInput');
+        if (!editor) return;
+
+        const input = editor.value.trim();
+
+        if (!input) {
+            this.showError('请输入JSON数据');
+            return;
+        }
+
+        try {
+            const cleaned = this.processEscapeCharacters(input);
+            editor.value = cleaned;
+            this.realTimeValidation(cleaned);
+            this.addToHistory(cleaned);
+            this.updateStatus('转义符移除完成');
+        } catch (error) {
+            this.showError('移除转义符失败: ' + error.message);
+        }
+    }
+
+    // 处理转义符的工具函数
+    processEscapeCharacters(jsonString) {
+        try {
+            // 处理常见的转义符
+            let cleaned = jsonString
+                // 去除反斜杠转义的双引号 \"
+                .replace(/\\"/g, '"')
+                // 去除反斜杠转义的反斜杠 \\
+                .replace(/\\\\/g, '\\')
+                // 去除转义的换行符 \n
+                .replace(/\\n/g, '\n')
+                // 去除转义的回车符 \r
+                .replace(/\\r/g, '\r')
+                // 去除转义的制表符 \t
+                .replace(/\\t/g, '\t')
+                // 去除转义的反斜杠 \/
+                .replace(/\\\//g, '/')
+                // 去除转义的退格符 \b
+                .replace(/\\b/g, '\b')
+                // 去除转义的换页符 \f
+                .replace(/\\f/g, '\f');
+
+            // 处理Unicode转义序列 \uXXXX
+            cleaned = cleaned.replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
+                return String.fromCharCode(parseInt(hex, 16));
+            });
+
+            return cleaned;
+        } catch (error) {
+            // 如果处理过程中出错，返回原始字符串
+            return jsonString;
         }
     }
 
@@ -876,6 +941,12 @@ class JSONToolPopup {
         if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'V') {
             event.preventDefault();
             this.validateJSON();
+        }
+
+        // Ctrl/Cmd + Shift + E: 移除转义符
+        if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'E') {
+            event.preventDefault();
+            this.removeEscapeCharacters();
         }
 
         // Ctrl/Cmd + Z: 撤销

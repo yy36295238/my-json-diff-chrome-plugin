@@ -315,6 +315,7 @@ body {
 .preview-actions {
     display: flex;
     gap: 8px;
+    align-items: center;
 }
 
 .editor-container,

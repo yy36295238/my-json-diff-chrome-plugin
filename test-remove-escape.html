@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试去除转义符功能</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .test-input, .test-output {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            font-family: monospace;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .test-btn {
+            padding: 8px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px 10px 0;
+        }
+        .test-btn:hover {
+            background: #0056b3;
+        }
+        h3 {
+            margin-top: 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>测试移除转义符按钮功能</h1>
+
+    <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <h3>使用说明</h3>
+        <p>1. 在下面的测试框中输入包含转义符的JSON数据</p>
+        <p>2. 点击"移除转义符"按钮</p>
+        <p>3. 查看转义符被移除后的结果</p>
+        <p><strong>注意：</strong>这个功能直接修改编辑器中的内容，就像主应用中的"移除转义符"按钮一样。</p>
+    </div>
+
+    <div class="test-section">
+        <h3>测试1: 基本转义符</h3>
+        <textarea class="test-input" id="test1" placeholder="输入包含转义符的JSON">
+{
+  "message": "Hello\\nWorld",
+  "path": "C:\\Users\\test",
+  "quote": "She said \"hello\"",
+  "tab": "Column1\\tColumn2"
+}
+        </textarea>
+        <button class="test-btn" onclick="testRemoveEscape('test1', 'result1')">移除转义符</button>
+        <textarea class="test-output" id="result1" readonly placeholder="处理结果将显示在这里"></textarea>
+    </div>
+
+    <div class="test-section">
+        <h3>测试2: Unicode转义序列</h3>
+        <textarea class="test-input" id="test2" placeholder="输入包含Unicode转义的JSON">
+{
+  "chinese": "\\u4e2d\\u6587",
+  "emoji": "\\ud83d\\ude80",
+  "special": "\\u0048\\u0065\\u006c\\u006c\\u006f"
+}
+        </textarea>
+        <button class="test-btn" onclick="testRemoveEscape('test2', 'result2')">移除转义符</button>
+        <textarea class="test-output" id="result2" readonly placeholder="处理结果将显示在这里"></textarea>
+    </div>
+
+    <div class="test-section">
+        <h3>测试3: 复杂转义组合</h3>
+        <textarea class="test-input" id="test3" placeholder="输入复杂转义符的JSON">
+{
+  "complex": "Line1\\nLine2\\tTabbed\\\"Quoted\\\"",
+  "url": "https:\\/\\/example.com\\/path",
+  "backslash": "C:\\\\folder\\\\file.txt",
+  "unicode": "\\u0041\\u0042\\u0043"
+}
+        </textarea>
+        <button class="test-btn" onclick="testRemoveEscape('test3', 'result3')">移除转义符</button>
+        <textarea class="test-output" id="result3" readonly placeholder="处理结果将显示在这里"></textarea>
+    </div>
+
+    <script>
+        // 复制移除转义符的函数用于测试
+        function processEscapeCharacters(jsonString) {
+            try {
+                // 处理常见的转义符
+                let cleaned = jsonString
+                    // 去除反斜杠转义的双引号 \"
+                    .replace(/\\"/g, '"')
+                    // 去除反斜杠转义的反斜杠 \\
+                    .replace(/\\\\/g, '\\')
+                    // 去除转义的换行符 \n
+                    .replace(/\\n/g, '\n')
+                    // 去除转义的回车符 \r
+                    .replace(/\\r/g, '\r')
+                    // 去除转义的制表符 \t
+                    .replace(/\\t/g, '\t')
+                    // 去除转义的反斜杠 \/
+                    .replace(/\\\//g, '/')
+                    // 去除转义的退格符 \b
+                    .replace(/\\b/g, '\b')
+                    // 去除转义的换页符 \f
+                    .replace(/\\f/g, '\f');
+
+                // 处理Unicode转义序列 \uXXXX
+                cleaned = cleaned.replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
+                    return String.fromCharCode(parseInt(hex, 16));
+                });
+
+                return cleaned;
+            } catch (error) {
+                // 如果处理过程中出错，返回原始字符串
+                return jsonString;
+            }
+        }
+
+        function testRemoveEscape(inputId, outputId) {
+            const input = document.getElementById(inputId).value;
+            const output = document.getElementById(outputId);
+
+            try {
+                // 去除转义符
+                const cleaned = processEscapeCharacters(input);
+
+                // 尝试解析并格式化
+                const parsed = JSON.parse(cleaned);
+                const formatted = JSON.stringify(parsed, null, 2);
+
+                output.value = `处理后的JSON:\n${formatted}\n\n原始输入:\n${input}\n\n去除转义后:\n${cleaned}`;
+            } catch (error) {
+                output.value = `错误: ${error.message}\n\n原始输入:\n${input}\n\n去除转义后尝试:\n${processEscapeCharacters(input)}`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试Chrome扩展移除转义符功能</title>
+    <link rel="stylesheet" href="popup-styles.css">
+    <style>
+        body {
+            width: 400px;
+            margin: 20px auto;
+        }
+        .test-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196f3;
+        }
+        .test-data {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="popup-container">
+        <!-- 头部 -->
+        <header class="popup-header">
+            <div class="logo">
+                <span class="logo-icon">🔧</span>
+                <h1>JSON工具 - 测试移除转义符</h1>
+            </div>
+            <button class="theme-toggle" id="themeToggle" title="切换主题">🌙</button>
+        </header>
+
+        <div class="test-info">
+            <h3>测试说明</h3>
+            <p>1. 下面的输入框中已经填入了包含转义符的JSON测试数据</p>
+            <p>2. 点击"移除转义符"按钮测试功能</p>
+            <p>3. 也可以使用快捷键 <strong>Ctrl+Shift+E</strong> (Mac用Cmd+Shift+E)</p>
+        </div>
+
+        <!-- 格式化页面 -->
+        <div class="tab-content active" id="formatter-content">
+            <div class="input-section">
+                <textarea id="jsonInput" placeholder="输入JSON数据..." rows="8">{
+  "message": "Hello\\nWorld",
+  "path": "C:\\Users\\test",
+  "quote": "She said \"hello\"",
+  "tab": "Column1\\tColumn2",
+  "unicode": "\\u4e2d\\u6587",
+  "complex": "Line1\\nLine2\\tTabbed\\\"Quoted\\\"",
+  "url": "https:\\/\\/example.com\\/path"
+}</textarea>
+                <div class="action-row">
+                    <button class="btn primary" id="formatBtn">美化</button>
+                    <button class="btn secondary" id="compressBtn">压缩</button>
+                    <button class="btn secondary" id="removeEscapeBtn">移除转义符</button>
+                    <button class="btn secondary" id="validateBtn">验证</button>
+                </div>
+            </div>
+            <div class="output-section">
+                <div class="output-header">
+                    <span>输出结果</span>
+                    <button class="btn-small" id="copyResult">复制</button>
+                </div>
+                <div id="jsonOutput" class="json-output"></div>
+            </div>
+        </div>
+
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <span id="statusText">就绪 - 请测试移除转义符功能</span>
+        </div>
+
+        <div class="test-data">
+            <strong>测试数据说明:</strong><br>
+            • \\n → 换行符<br>
+            • \\t → 制表符<br>
+            • \\\" → 双引号<br>
+            • \\\\ → 反斜杠<br>
+            • \\u4e2d\\u6587 → 中文<br>
+            • \\/ → 正斜杠
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

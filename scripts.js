@@ -54,6 +54,10 @@ class JSONToolApp {
             this.compressJSON();
         });
 
+        document.getElementById('removeEscapeBtn').addEventListener('click', () => {
+            this.removeEscapeCharacters();
+        });
+
         // JSON编辑器实时验证
         const jsonEditor = document.getElementById('jsonEditor');
         jsonEditor.addEventListener('input', (e) => {
@@ -452,6 +456,62 @@ class JSONToolApp {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // 移除转义符按钮功能
+    removeEscapeCharacters() {
+        const editor = document.getElementById('jsonEditor');
+        const input = editor.value.trim();
+
+        if (!input) {
+            this.updateStatus('请输入JSON数据');
+            return;
+        }
+
+        try {
+            const cleaned = this.processEscapeCharacters(input);
+            editor.value = cleaned;
+            this.updatePreview(cleaned);
+            this.addToHistory(cleaned);
+            this.updateEditorInfo();
+            this.updateStatus('转义符移除完成');
+        } catch (error) {
+            this.showError('移除转义符失败', error.message);
+        }
+    }
+
+    // 处理转义符的工具函数
+    processEscapeCharacters(jsonString) {
+        try {
+            // 处理常见的转义符
+            let cleaned = jsonString
+                // 去除反斜杠转义的双引号 \"
+                .replace(/\\"/g, '"')
+                // 去除反斜杠转义的反斜杠 \\
+                .replace(/\\\\/g, '\\')
+                // 去除转义的换行符 \n
+                .replace(/\\n/g, '\n')
+                // 去除转义的回车符 \r
+                .replace(/\\r/g, '\r')
+                // 去除转义的制表符 \t
+                .replace(/\\t/g, '\t')
+                // 去除转义的反斜杠 \/
+                .replace(/\\\//g, '/')
+                // 去除转义的退格符 \b
+                .replace(/\\b/g, '\b')
+                // 去除转义的换页符 \f
+                .replace(/\\f/g, '\f');
+
+            // 处理Unicode转义序列 \uXXXX
+            cleaned = cleaned.replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
+                return String.fromCharCode(parseInt(hex, 16));
+            });
+
+            return cleaned;
+        } catch (error) {
+            // 如果处理过程中出错，返回原始字符串
+            return jsonString;
+        }
     }
 
     // 更新编辑器信息
