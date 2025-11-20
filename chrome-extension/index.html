@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JSON工具 - 专业级JSON处理平台</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="icon" href="icons/icon.svg">
+    <link rel="stylesheet" href="styles-simple.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
 </head>
 <body>
     <!-- 主容器 -->
@@ -56,6 +56,10 @@
                         <div class="editor-header">
                             <h3>JSON编辑器</h3>
                         <div class="editor-actions">
+                                <label style="margin-right: 10px; font-size: 14px; cursor: pointer;">
+                                    <input type="checkbox" id="deepParseCheckbox" checked style="margin-right: 5px;">
+                                    递归解析JSON字符串
+                                </label>
                                 <button class="action-btn" id="formatBtn">美化</button>
                                 <button class="action-btn" id="compressBtn">压缩</button>
                                 <button class="action-btn" id="removeEscapeBtn">移除转义符</button>

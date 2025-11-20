@@ -315,6 +315,7 @@ body {
 .preview-actions {
     display: flex;
     gap: 8px;
+    align-items: center;
 }
 
 .editor-container,
@@ -583,11 +584,12 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     resize: none;
-    overflow: auto;           /* 允许横向滚动 */
-    white-space: pre;         /* 不自动换行，超宽时出现横向滚动条 */
+    overflow: auto;
     position: relative;
     z-index: 2;
     box-sizing: border-box;
+    overflow: auto;           /* 允许横向滚动 */
+    white-space: pre;         /* 不自动换行，超宽时出现横向滚动条 */
 }
 
 /* 高亮层样式 */
@@ -1791,8 +1793,6 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     transition: var(--transition);
-    overflow: auto;           /* 允许横向滚动 */
-    white-space: pre;         /* 不自动换行，超宽时出现横向滚动条 */
 }
 
 .compare-input-container textarea:focus {

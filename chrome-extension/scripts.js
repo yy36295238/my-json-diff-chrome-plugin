@@ -63,7 +63,6 @@ class JSONToolApp {
         jsonEditor.addEventListener('input', (e) => {
             this.updateEditorInfo();
             this.realTimeValidation(e.target.value);
-            this.scheduleAutoSave(e.target.value);
         });
         // 主编辑器行号滚动同步
         jsonEditor.addEventListener('scroll', () => {
@@ -221,13 +220,6 @@ class JSONToolApp {
                 this.redo();
             }
         });
-
-        // 折叠/展开按钮（使用事件委托）
-        document.addEventListener('click', (e) => {
-            if (e.target.hasAttribute('data-collapsible')) {
-                this.toggleContent(e.target);
-            }
-        });
     }
 
     // 标签切换
@@ -274,6 +266,7 @@ class JSONToolApp {
     }
 
     // JSON格式化
+    // JSON格式化（支持递归解析JSON字符串）
     formatJSON() {
         const editor = document.getElementById('jsonEditor');
         const input = editor.value.trim();
@@ -285,14 +278,69 @@ class JSONToolApp {
 
         try {
             const parsed = JSON.parse(input);
-            const formatted = JSON.stringify(parsed, null, 2);
+
+            // 检查是否启用递归解析
+            const deepParseCheckbox = document.getElementById('deepParseCheckbox');
+            const shouldDeepParse = deepParseCheckbox ? deepParseCheckbox.checked : false;
+
+            // 根据选项决定是否递归解析JSON字符串
+            const result = shouldDeepParse ? this.deepParseJSON(parsed) : parsed;
+
+            const formatted = JSON.stringify(result, null, 2);
             editor.value = formatted;
             this.updatePreview(formatted);
             this.addToHistory(formatted);
-            this.updateStatus('JSON格式化完成');
+
+            const statusMsg = shouldDeepParse ?
+                'JSON格式化完成（已递归解析JSON字符串）' :
+                'JSON格式化完成';
+            this.updateStatus(statusMsg);
         } catch (error) {
             this.showError('JSON格式化失败', error.message);
         }
+    }
+
+    // 递归解析对象中的JSON字符串
+    deepParseJSON(obj) {
+        if (obj === null || obj === undefined) {
+            return obj;
+        }
+
+        // 处理数组
+        if (Array.isArray(obj)) {
+            return obj.map(item => this.deepParseJSON(item));
+        }
+
+        // 处理对象
+        if (typeof obj === 'object') {
+            const result = {};
+            for (const key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    result[key] = this.deepParseJSON(obj[key]);
+                }
+            }
+            return result;
+        }
+
+        // 处理字符串 - 尝试解析为JSON
+        if (typeof obj === 'string') {
+            // 检查是否是JSON字符串（简单判断：以{或[开头，以}或]结尾）
+            const trimmed = obj.trim();
+            if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                try {
+                    const parsed = JSON.parse(obj);
+                    // 递归解析嵌套的JSON字符串
+                    return this.deepParseJSON(parsed);
+                } catch (e) {
+                    // 如果解析失败，保持原字符串
+                    return obj;
+                }
+            }
+        }
+
+        // 其他基本类型直接返回
+        return obj;
     }
 
     // JSON压缩
@@ -314,62 +362,6 @@ class JSONToolApp {
             this.updateStatus('JSON压缩完成');
         } catch (error) {
             this.showError('JSON压缩失败', error.message);
-        }
-    }
-
-    // 移除转义符按钮功能
-    removeEscapeCharacters() {
-        const editor = document.getElementById('jsonEditor');
-        const input = editor.value.trim();
-
-        if (!input) {
-            this.updateStatus('请输入JSON数据');
-            return;
-        }
-
-        try {
-            const cleaned = this.processEscapeCharacters(input);
-            editor.value = cleaned;
-            this.updatePreview(cleaned);
-            this.addToHistory(cleaned);
-            this.updateEditorInfo();
-            this.updateStatus('转义符移除完成');
-        } catch (error) {
-            this.showError('移除转义符失败', error.message);
-        }
-    }
-
-    // 处理转义符的工具函数
-    processEscapeCharacters(jsonString) {
-        try {
-            // 处理常见的转义符
-            let cleaned = jsonString
-                // 去除反斜杠转义的双引号 \"
-                .replace(/\\"/g, '"')
-                // 去除反斜杠转义的反斜杠 \\
-                .replace(/\\\\/g, '\\')
-                // 去除转义的换行符 \n
-                .replace(/\\n/g, '\n')
-                // 去除转义的回车符 \r
-                .replace(/\\r/g, '\r')
-                // 去除转义的制表符 \t
-                .replace(/\\t/g, '\t')
-                // 去除转义的反斜杠 \/
-                .replace(/\\\//g, '/')
-                // 去除转义的退格符 \b
-                .replace(/\\b/g, '\b')
-                // 去除转义的换页符 \f
-                .replace(/\\f/g, '\f');
-
-            // 处理Unicode转义序列 \uXXXX
-            cleaned = cleaned.replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
-                return String.fromCharCode(parseInt(hex, 16));
-            });
-
-            return cleaned;
-        } catch (error) {
-            // 如果处理过程中出错，返回原始字符串
-            return jsonString;
         }
     }
 
@@ -442,7 +434,7 @@ class JSONToolApp {
 
         let html = '';
 
-        html += `<span class="json-collapsible" data-collapsible="true">▼</span>`;
+        html += `<span class="json-collapsible" onclick="window.jsonTool.toggleContent(this)">▼</span>`;
         html += `<span class="json-bracket">[</span>`;
         html += `<span style="color: var(--text-muted); margin-left: 8px;">${arr.length} items</span>`;
         html += `<div class="json-collapsible-content" style="margin-left: 20px; border-left: 1px solid var(--border-color); padding-left: 10px;">`;
@@ -473,7 +465,7 @@ class JSONToolApp {
 
         let html = '';
 
-        html += `<span class="json-collapsible" data-collapsible="true">▼</span>`;
+        html += `<span class="json-collapsible" onclick="window.jsonTool.toggleContent(this)">▼</span>`;
         html += `<span class="json-bracket">{</span>`;
         html += `<span style="color: var(--text-muted); margin-left: 8px;">${keys.length} ${keys.length === 1 ? 'property' : 'properties'}</span>`;
         html += `<div class="json-collapsible-content" style="margin-left: 20px; border-left: 1px solid var(--border-color); padding-left: 10px;">`;
@@ -520,6 +512,62 @@ class JSONToolApp {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // 移除转义符按钮功能
+    removeEscapeCharacters() {
+        const editor = document.getElementById('jsonEditor');
+        const input = editor.value.trim();
+
+        if (!input) {
+            this.updateStatus('请输入JSON数据');
+            return;
+        }
+
+        try {
+            const cleaned = this.processEscapeCharacters(input);
+            editor.value = cleaned;
+            this.updatePreview(cleaned);
+            this.addToHistory(cleaned);
+            this.updateEditorInfo();
+            this.updateStatus('转义符移除完成');
+        } catch (error) {
+            this.showError('移除转义符失败', error.message);
+        }
+    }
+
+    // 处理转义符的工具函数
+    processEscapeCharacters(jsonString) {
+        try {
+            // 处理常见的转义符
+            let cleaned = jsonString
+                // 去除反斜杠转义的双引号 \"
+                .replace(/\\"/g, '"')
+                // 去除反斜杠转义的反斜杠 \\
+                .replace(/\\\\/g, '\\')
+                // 去除转义的换行符 \n
+                .replace(/\\n/g, '\n')
+                // 去除转义的回车符 \r
+                .replace(/\\r/g, '\r')
+                // 去除转义的制表符 \t
+                .replace(/\\t/g, '\t')
+                // 去除转义的反斜杠 \/
+                .replace(/\\\//g, '/')
+                // 去除转义的退格符 \b
+                .replace(/\\b/g, '\b')
+                // 去除转义的换页符 \f
+                .replace(/\\f/g, '\f');
+
+            // 处理Unicode转义序列 \uXXXX
+            cleaned = cleaned.replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
+                return String.fromCharCode(parseInt(hex, 16));
+            });
+
+            return cleaned;
+        } catch (error) {
+            // 如果处理过程中出错，返回原始字符串
+            return jsonString;
+        }
     }
 
     // 更新编辑器信息
@@ -661,21 +709,26 @@ class JSONToolApp {
         this.clearComparison();
 
         if (!leftJson || !rightJson) {
+            console.log('[对比] 输入为空');
             return;
         }
 
         try {
             const leftObj = JSON.parse(leftJson);
             const rightObj = JSON.parse(rightJson);
+            console.log('[对比] JSON解析成功');
 
             // 计算结构化差异
             const diff = this.calculateStructuralDiff(leftObj, rightObj);
+            console.log('[对比] 发现差异数:', diff.length, diff);
 
             // 生成并排对比视图
             this.displayStructuralDiff(diff, leftObj, rightObj);
+            console.log('[对比] 显示差异完成');
 
             if (!silent) this.updateStatus(`对比完成：发现 ${diff.length} 处差异`);
         } catch (error) {
+            console.error('[对比] 错误:', error);
             // JSON格式错误
             if (!silent) {
                 this.showError('对比失败', '请检查左右两侧 JSON 是否为有效格式');
@@ -774,9 +827,13 @@ class JSONToolApp {
 
     // 显示结构化差异
     displayStructuralDiff(differences, leftObj, rightObj) {
+        console.log('[显示差异] 开始, 差异数:', differences.length);
         // 生成带差异标记的JSON展示
         const leftDisplay = this.generateDiffDisplay(leftObj, differences, 'left');
         const rightDisplay = this.generateDiffDisplay(rightObj, differences, 'right');
+
+        console.log('[显示差异] 左侧行数:', leftDisplay.length, '差异行:', leftDisplay.filter(l => l.type !== 'same').length);
+        console.log('[显示差异] 右侧行数:', rightDisplay.length, '差异行:', rightDisplay.filter(l => l.type !== 'same').length);
 
         // 更新输入框显示
         this.updateCompareDisplay('leftJson', leftDisplay);
@@ -849,7 +906,23 @@ class JSONToolApp {
 
         // 对于基本类型，检查值是否在行中
         if (typeof value === 'string') {
-            return line.includes(`"${value}"`);
+            // 对于字符串，尝试多种匹配方式
+            // 1. 直接匹配（短字符串）
+            if (line.includes(`"${value}"`)) {
+                return true;
+            }
+            // 2. 匹配转义后的字符串（长字符串或包含特殊字符）
+            const escapedValue = JSON.stringify(value);
+            if (line.includes(escapedValue)) {
+                return true;
+            }
+            // 3. 只要该行包含该键名，且该键对应的值存在，就认为匹配
+            // 这是为了处理很长的字符串值，可能跨多行显示
+            const keyPattern = `"${lastKey}"\\s*:\\s*`;
+            if (new RegExp(keyPattern).test(line)) {
+                return true;
+            }
+            return false;
         } else if (typeof value === 'number' || typeof value === 'boolean') {
             return line.includes(String(value));
         } else if (value === null) {
@@ -862,12 +935,14 @@ class JSONToolApp {
 
     // 更新对比显示
     updateCompareDisplay(textareaId, diffLines) {
+        console.log('[更新显示] textarea:', textareaId, '行数:', diffLines.length);
         const textarea = document.getElementById(textareaId);
         const container = textarea.parentElement;
 
         // 移除已存在的高亮层
         const existingHighlight = container.querySelector('.highlight-layer');
         if (existingHighlight) {
+            console.log('[更新显示] 移除已存在的高亮层');
             existingHighlight.remove();
         }
 
@@ -894,12 +969,18 @@ class JSONToolApp {
 
         // 生成高亮内容
         let highlightHTML = '';
+        let diffCount = 0;
         diffLines.forEach((diffLine) => {
             const lineContent = this.escapeHtml(diffLine.content);
             const className = this.getHighlightClass(diffLine.type);
+            if (diffLine.type !== 'same') {
+                diffCount++;
+                console.log('[高亮行]', diffLine.lineNumber, diffLine.type, diffLine.content.substring(0, 50));
+            }
             highlightHTML += `<div class="${className}">${lineContent}</div>`;
         });
 
+        console.log('[更新显示] 总差异行数:', diffCount);
         highlightLayer.innerHTML = highlightHTML;
 
         // 确保容器有相对定位
@@ -908,6 +989,7 @@ class JSONToolApp {
         }
 
         container.appendChild(highlightLayer);
+        console.log('[更新显示] 高亮层已添加到DOM');
 
         // 初始滚动同步，避免首次渲染顶部出现位移
         highlightLayer.scrollTop = textarea.scrollTop;
@@ -1778,12 +1860,6 @@ class JSONToolApp {
             this.compressJSON();
         }
 
-        // Ctrl/Cmd + Shift + E: 移除转义符
-        if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'E') {
-            event.preventDefault();
-            this.removeEscapeCharacters();
-        }
-
         // F1: 帮助
         if (event.key === 'F1') {
             event.preventDefault();
@@ -1815,27 +1891,6 @@ class JSONToolApp {
                 this.redo();
             }
         }
-    }
-
-    // 自动保存调度（防抖）
-    scheduleAutoSave(content) {
-        // 清除之前的定时器
-        clearTimeout(this._autoSaveTimer);
-
-        // 设置新的定时器（2秒后自动保存）
-        this._autoSaveTimer = setTimeout(() => {
-            // 只有在内容有效且与当前历史记录不同时才保存
-            if (content && content.trim() &&
-                (this.history.length === 0 || this.history[this.historyIndex]?.content !== content)) {
-                try {
-                    // 验证JSON是否有效
-                    JSON.parse(content);
-                    this.addToHistory(content);
-                } catch (e) {
-                    // 如果JSON无效，不添加到历史记录
-                }
-            }
-        }, 2000);
     }
 
     // 历史记录管理
@@ -2080,12 +2135,10 @@ class JSONToolApp {
         modal.style.display = 'flex';
 
         if (onConfirm) {
-            modalConfirm.removeEventListener('click', modalConfirm._clickHandler);
-            modalConfirm._clickHandler = () => {
+            modalConfirm.onclick = () => {
                 onConfirm();
                 this.closeModal();
             };
-            modalConfirm.addEventListener('click', modalConfirm._clickHandler);
         }
     }
 
