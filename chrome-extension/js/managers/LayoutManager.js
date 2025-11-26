@@ -14,10 +14,6 @@ export class LayoutManager {
         });
 
         document.getElementById('themeToggle').addEventListener('click', () => this.app.toggleTheme());
-        document.getElementById('clearAll').addEventListener('click', () => this.app.clearAll());
-        document.getElementById('historyBtn').addEventListener('click', () => this.showHistory());
-        document.getElementById('settingsBtn').addEventListener('click', () => this.showSettings());
-        document.getElementById('helpBtn').addEventListener('click', () => this.showHelp());
         document.getElementById('closeError').addEventListener('click', () => this.hideErrorPanel());
         document.getElementById('closeModal').addEventListener('click', () => this.closeModal());
         document.getElementById('modalCancel').addEventListener('click', () => this.closeModal());
@@ -25,6 +21,27 @@ export class LayoutManager {
 
         const addSplitBtn = document.getElementById('addSplitPane');
         if (addSplitBtn) addSplitBtn.addEventListener('click', () => this.addSplitPane());
+
+        const multiSplitContainer = document.getElementById('multiSplitContainer');
+        if (multiSplitContainer) {
+            multiSplitContainer.addEventListener('click', (e) => {
+                const target = e.target;
+                if (target.classList.contains('pane-action-btn')) {
+                    const index = parseInt(target.dataset.index, 10);
+                    this.formatPane(index);
+                } else if (target.classList.contains('pane-delete-btn')) {
+                    const index = parseInt(target.dataset.index, 10);
+                    this.removeSplitPane(index);
+                }
+            });
+            multiSplitContainer.addEventListener('input', (e) => {
+                const target = e.target;
+                if (target.classList.contains('multi-pane-textarea')) {
+                    const index = parseInt(target.dataset.index, 10);
+                    this.updatePaneContent(index, target.value);
+                }
+            });
+        }
 
         this.initMultiSplit();
         this.initFormatterResizer(); // Call formatter resizer init
@@ -91,32 +108,6 @@ export class LayoutManager {
 
     closeModal() {
         document.getElementById('modal').style.display = 'none';
-    }
-
-    showHistory() {
-        const list = this.app.history.map((item, idx) => `
-            <div class="history-item ${idx === this.app.historyIndex ? 'current' : ''}" onclick="window.jsonTool.loadFromHistory(${idx})">
-                <div class="history-time">${new Date(item.timestamp).toLocaleString()}</div>
-                <div class="history-preview">${Utils.escapeHtml(item.content.substring(0, 100))}...</div>
-            </div>
-        `).join('');
-        this.showSidebar('操作历史', `<div class="history-list">${list || '暂无历史'}</div>`);
-    }
-
-    showSettings() {
-        this.showSidebar('设置', `
-            <div class="settings-panel">
-                <h4>应用设置</h4>
-                <div class="setting-group">
-                    <label><input type="radio" name="theme" value="light" ${this.app.theme === 'light' ? 'checked' : ''} onclick="window.jsonTool.setTheme('light')"> 亮色</label>
-                    <label><input type="radio" name="theme" value="dark" ${this.app.theme === 'dark' ? 'checked' : ''} onclick="window.jsonTool.setTheme('dark')"> 暗色</label>
-                </div>
-            </div>
-        `);
-    }
-
-    showHelp() {
-        this.showModal('帮助', '<p>快捷键: Cmd+Shift+F (格式化)</p>');
     }
 
     // Multi Split Logic
@@ -209,12 +200,12 @@ export class LayoutManager {
                 <header>
                     <div>面板 ${i + 1}</div>
                     <div class="pane-actions">
-                        <button class="pane-action-btn" onclick="window.jsonTool.layout.formatPane(${i})">美</button>
-                        <button class="pane-delete-btn" onclick="window.jsonTool.layout.removeSplitPane(${i})">×</button>
+                        <button class="pane-action-btn" data-index="${i}">美</button>
+                        <button class="pane-delete-btn" data-index="${i}">×</button>
                     </div>
                 </header>
                 <div class="multi-pane-content">
-                    <textarea class="multi-pane-textarea" oninput="window.jsonTool.layout.updatePaneContent(${i}, this.value)">${this.splitPaneContents[i] || ''}</textarea>
+                    <textarea class="multi-pane-textarea" data-index="${i}">${Utils.escapeHtml(this.splitPaneContents[i] || '')}</textarea>
                 </div>
             `;
             container.appendChild(pane);
@@ -275,8 +266,6 @@ export class LayoutManager {
                         document.removeEventListener('mouseup', onUp);
                         
                         this.saveSplitLayout();
-                        // Re-render to ensure clean state
-                        this.renderMultiSplit();
                     }
                 };
 

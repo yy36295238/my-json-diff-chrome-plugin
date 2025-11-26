@@ -31,6 +31,19 @@ export class FormatterManager {
             const ln = document.getElementById('jsonEditorLines');
             if (ln) ln.scrollTop = jsonEditor.scrollTop;
         });
+
+        // 预览区域事件委托 (修复 Chrome Extension CSP 问题)
+        const jsonPreview = document.getElementById('jsonPreview');
+        jsonPreview.addEventListener('click', (e) => {
+            if (e.target.classList.contains('json-collapsible')) {
+                this.toggleContent(e.target);
+            } else if (e.target.classList.contains('json-key') && e.target.classList.contains('clickable')) {
+                const path = e.target.getAttribute('data-path');
+                if (path) {
+                    this.onKeyClick(path);
+                }
+            }
+        });
     }
 
     formatJSON() {
@@ -170,7 +183,8 @@ export class FormatterManager {
         let html = '';
         if (key !== null) {
             const safeKey = Utils.escapeHtml(key);
-            html += `<span class="json-key clickable" onclick="window.jsonTool.formatter.onKeyClick('${Utils.escapePath(path)}')" title="点击复制 JSONPath">"${safeKey}"</span>: `;
+            const safePath = Utils.escapeHtml(path); // Although Utils.escapePath exists, simple escaping is usually safer for attributes
+            html += `<span class="json-key clickable" data-path="${safePath}" title="点击复制 JSONPath">"${safeKey}"</span>: `;
         }
 
         if (obj === null) {
@@ -192,7 +206,7 @@ export class FormatterManager {
     renderArrayStructure(arr, level, currentPath) {
         if (arr.length === 0) return `<span class="json-bracket">[]</span>`;
         let html = '';
-        html += `<span class="json-collapsible" onclick="window.jsonTool.formatter.toggleContent(this)">▼</span>`;
+        html += `<span class="json-collapsible">▼</span>`;
         html += `<span class="json-bracket">[</span>`;
         html += `<span style="color: var(--text-muted); margin-left: 8px;">${arr.length} items</span>`;
         html += `<div class="json-collapsible-content" style="margin-left: 20px; border-left: 1px solid var(--border-color); padding-left: 10px;">`;
@@ -213,7 +227,7 @@ export class FormatterManager {
         const keys = Object.keys(obj);
         if (keys.length === 0) return `<span class="json-bracket">{}</span>`;
         let html = '';
-        html += `<span class="json-collapsible" onclick="window.jsonTool.formatter.toggleContent(this)">▼</span>`;
+        html += `<span class="json-collapsible">▼</span>`;
         html += `<span class="json-bracket">{</span>`;
         html += `<span style="color: var(--text-muted); margin-left: 8px;">${keys.length} ${keys.length === 1 ? 'property' : 'properties'}</span>`;
         html += `<div class="json-collapsible-content" style="margin-left: 20px; border-left: 1px solid var(--border-color); padding-left: 10px;">`;
