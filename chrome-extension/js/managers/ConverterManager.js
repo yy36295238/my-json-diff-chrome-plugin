@@ -27,7 +27,7 @@ export class ConverterManager {
             const parsed = JSON.parse(val);
             input.value = JSON.stringify(parsed, null, 2);
         } catch (e) {
-            this.app.layout.showError('格式化失败', '非有效 JSON');
+            this.app.layout.showError('格式化失败', e.message);
         }
     }
 

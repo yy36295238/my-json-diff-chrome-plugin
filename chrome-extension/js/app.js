@@ -1,6 +1,5 @@
 import { FormatterManager } from './managers/FormatterManager.js';
 import { CompareManager } from './managers/CompareManager.js';
-import { GeneratorManager } from './managers/GeneratorManager.js';
 import { ConverterManager } from './managers/ConverterManager.js';
 import { LayoutManager } from './managers/LayoutManager.js';
 
@@ -14,7 +13,6 @@ class JSONToolApp {
         this.layout = new LayoutManager(this);
         this.formatter = new FormatterManager(this);
         this.compare = new CompareManager(this);
-        this.generator = new GeneratorManager(this);
         this.converter = new ConverterManager(this);
     }
 
@@ -25,7 +23,6 @@ class JSONToolApp {
         this.layout.init();
         this.formatter.init();
         this.compare.init();
-        this.generator.init();
         this.converter.init();
 
         this.setupTheme();

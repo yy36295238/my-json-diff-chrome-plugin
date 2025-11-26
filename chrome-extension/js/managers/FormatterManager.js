@@ -10,6 +10,8 @@ export class FormatterManager {
         document.getElementById('formatBtn').addEventListener('click', () => this.formatJSON());
         document.getElementById('compressBtn').addEventListener('click', () => this.compressJSON());
         document.getElementById('removeEscapeBtn').addEventListener('click', () => this.removeEscapeCharacters());
+        const loadExampleBtn = document.getElementById('loadExampleBtn');
+        if (loadExampleBtn) loadExampleBtn.addEventListener('click', () => this.loadExample());
 
         // 预览操作
         document.getElementById('expandAll').addEventListener('click', () => this.expandAll());
@@ -44,6 +46,69 @@ export class FormatterManager {
                 }
             }
         });
+    }
+
+    loadExample() {
+        const complexExample = {
+            "project": "SuperNova",
+            "version": "1.0.0-beta",
+            "active": true,
+            "meta": {
+                "created": "2023-10-27T10:00:00Z",
+                "author": {
+                    "name": "DevTeam Alpha",
+                    "contact": "admin@example.com",
+                    "roles": ["admin", "editor", "viewer"]
+                },
+                "tags": ["react", "typescript", "vite", "complex-json"]
+            },
+            "features": [
+                {
+                    "id": "f-001",
+                    "name": "Dashboard",
+                    "enabled": true,
+                    "config": {
+                        "layout": "grid",
+                        "widgets": [
+                            { "type": "chart", "source": "api/sales", "refreshRate": 30000 },
+                            { "type": "list", "source": "api/tasks", "limit": 10 }
+                        ]
+                    }
+                },
+                {
+                    "id": "f-002",
+                    "name": "UserManagement",
+                    "enabled": false,
+                    "permissions": ["read", "write", "delete"]
+                }
+            ],
+            "settings": {
+                "theme": "dark",
+                "notifications": {
+                    "email": true,
+                    "sms": false,
+                    "push": {
+                        "desktop": true,
+                        "mobile": false
+                    }
+                },
+                "retryPolicy": {
+                    "maxAttempts": 3,
+                    "backoff": "exponential"
+                }
+            },
+            "nullValue": null,
+            "emptyArray": [],
+            "emptyObject": {}
+        };
+
+        const jsonString = JSON.stringify(complexExample, null, 2);
+        const editor = document.getElementById('jsonEditor');
+        editor.value = jsonString;
+        this.updatePreview(jsonString);
+        this.app.addToHistory(jsonString);
+        this.updateEditorInfo();
+        this.app.layout.updateStatus('已加载复杂示例数据');
     }
 
     formatJSON() {

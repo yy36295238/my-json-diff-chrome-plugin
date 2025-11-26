@@ -5,7 +5,9 @@ export class LayoutManager {
         this.app = app;
         this.splitPaneWidths = [];
         this.splitPaneContents = [];
+        this.splitPaneTitles = []; // Initialize titles
         this.maxSplitPanes = 5;
+        this._errorTimeout = null; // Initialize error timeout
     }
 
     init() {
@@ -39,6 +41,9 @@ export class LayoutManager {
                 if (target.classList.contains('multi-pane-textarea')) {
                     const index = parseInt(target.dataset.index, 10);
                     this.updatePaneContent(index, target.value);
+                } else if (target.classList.contains('pane-title-input')) {
+                    const index = parseInt(target.dataset.index, 10);
+                    this.updatePaneTitle(index, target.value);
                 }
             });
         }
@@ -56,12 +61,15 @@ export class LayoutManager {
         const targetContent = document.getElementById(`${tabName}-content`);
         if (targetContent) targetContent.classList.add('active');
 
+        // Hide error panel when switching tabs
+        this.hideErrorPanel();
+
         this.app.currentTab = tabName;
         this.updateStatus(`已切换到${this.getTabName(tabName)}`);
     }
 
     getTabName(name) {
-        const map = { formatter: '格式化', compare: '对比', generator: '生成器', converter: '转换', split: '分隔栏' };
+        const map = { formatter: '格式化', compare: '对比', converter: '转换', split: '分隔栏' };
         return map[name] || name;
     }
 
@@ -74,8 +82,17 @@ export class LayoutManager {
         const panel = document.getElementById('errorPanel');
         const content = document.getElementById('errorContent');
         content.innerHTML = `<strong>${title}</strong><br><br>${message.replace(/\n/g, '<br>')}`;
-        panel.style.display = 'block';
+        panel.style.display = 'flex';
         this.updateStatus(`错误: ${title}`);
+
+        // Automatically hide after 5 seconds
+        if (this._errorTimeout) {
+            clearTimeout(this._errorTimeout);
+        }
+        this._errorTimeout = setTimeout(() => {
+            this.hideErrorPanel();
+            this._errorTimeout = null; // Clear the timeout ID after it executes
+        }, 5000); // 5000 milliseconds = 5 seconds
     }
 
     hideErrorPanel() {
@@ -116,12 +133,21 @@ export class LayoutManager {
             const data = JSON.parse(localStorage.getItem('json-tool-data') || '{}');
             if (data.splitPaneWidths) this.splitPaneWidths = data.splitPaneWidths;
             if (data.splitPaneContents) this.splitPaneContents = data.splitPaneContents;
+            if (data.splitPaneTitles) this.splitPaneTitles = data.splitPaneTitles;
         } catch (e) {}
 
         if (!this.splitPaneWidths.length) {
             this.splitPaneWidths = Array(3).fill(1/3);
             this.splitPaneContents = Array(3).fill('');
+            this.splitPaneTitles = ['面板 1', '面板 2', '面板 3'];
         }
+        // Ensure titles array matches width array length (migration handling)
+        if (this.splitPaneTitles.length < this.splitPaneWidths.length) {
+             for (let i = this.splitPaneTitles.length; i < this.splitPaneWidths.length; i++) {
+                 this.splitPaneTitles.push(`面板 ${i + 1}`);
+             }
+        }
+
         this.renderMultiSplit();
     }
 
@@ -198,7 +224,7 @@ export class LayoutManager {
             pane.style.flex = `${width} 0 0%`;
             pane.innerHTML = `
                 <header>
-                    <div>面板 ${i + 1}</div>
+                    <input type="text" class="pane-title-input" data-index="${i}" value="${Utils.escapeHtml(this.splitPaneTitles[i] || `面板 ${i + 1}`)}" spellcheck="false">
                     <div class="pane-actions">
                         <button class="pane-action-btn" data-index="${i}">美</button>
                         <button class="pane-delete-btn" data-index="${i}">×</button>
@@ -281,12 +307,14 @@ export class LayoutManager {
         const n = this.splitPaneWidths.length + 1;
         this.splitPaneWidths = Array(n).fill(1/n);
         this.splitPaneContents.push('');
+        this.splitPaneTitles.push(`面板 ${n}`);
         this.renderMultiSplit();
     }
 
     removeSplitPane(index) {
         if (this.splitPaneWidths.length <= 1) return;
         this.splitPaneContents.splice(index, 1);
+        this.splitPaneTitles.splice(index, 1);
         const n = this.splitPaneWidths.length - 1;
         this.splitPaneWidths = Array(n).fill(1/n);
         this.renderMultiSplit();
@@ -297,17 +325,29 @@ export class LayoutManager {
         this.saveSplitLayout();
     }
 
+    updatePaneTitle(index, value) {
+        this.splitPaneTitles[index] = value;
+        this.saveSplitLayout();
+    }
+
     formatPane(index) {
         try {
             const val = this.splitPaneContents[index];
+            if (!val.trim()) return;
             const pretty = JSON.stringify(JSON.parse(val), null, 2);
             this.splitPaneContents[index] = pretty;
             this.renderMultiSplit();
-        } catch(e) {}
+        } catch(e) {
+            this.showError('格式化失败', e.message);
+        }
     }
 
     saveSplitLayout() {
-        const data = { splitPaneWidths: this.splitPaneWidths, splitPaneContents: this.splitPaneContents };
+        const data = { 
+            splitPaneWidths: this.splitPaneWidths, 
+            splitPaneContents: this.splitPaneContents,
+            splitPaneTitles: this.splitPaneTitles
+        };
         localStorage.setItem('json-tool-data', JSON.stringify(data));
     }
 }

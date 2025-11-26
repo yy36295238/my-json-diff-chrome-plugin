@@ -81,7 +81,7 @@ export class CompareManager {
             this.updateLineNumbers(side, area, document.getElementById(`${id}Lines`));
             this.app.layout.updateStatus(`${side === 'left' ? '左侧' : '右侧'}已美化`);
         } catch (e) {
-            this.app.layout.showError('美化失败', 'JSON 格式错误');
+            this.app.layout.showError('美化失败', e.message);
         }
     }
 

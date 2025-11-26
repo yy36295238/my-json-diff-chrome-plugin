@@ -451,13 +451,13 @@ button {
     padding: 16px;
     overflow: auto;
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: 14px;
     color: var(--text-primary);
     white-space: pre-wrap;
     word-wrap: break-word;
 }
 
-.json-key { color: #0a64b9; font-weight: 600; }
+.json-key { color: #0a64b9; font-weight: normal; }
 [data-theme="dark"] .json-key { color: #78c1f3; }
 
 .json-string { color: #22c55e; } /* Green */
@@ -472,7 +472,7 @@ button {
 .json-null { color: #9ca3af; font-style: italic; } /* Gray */
 [data-theme="dark"] .json-null { color: #94a3b8; }
 
-.json-bracket { color: var(--text-secondary); font-weight: bold; }
+.json-bracket { color: var(--text-secondary); font-weight: normal; }
 
 /* JSON Collapsible / Tree View */
 .json-collapsible {
@@ -834,8 +834,29 @@ select.select-field {
     color: var(--text-muted);
     transition: color 0.2s;
 }
-.pane-action-btn:hover { color: var(--primary); }
-.pane-delete-btn:hover { color: var(--danger); }
+.pane-title-input {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 6px;
+    width: 140px;
+    transition: all 0.2s;
+}
+
+.pane-title-input:hover {
+    background-color: var(--bg-hover);
+}
+
+.pane-title-input:focus {
+    border-color: var(--primary);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 1px var(--primary-light);
+}
 
 .multi-pane-content {
     flex: 1;
@@ -902,7 +923,7 @@ select.select-field {
 /* Toast / Notifications */
 .error-toast {
     position: absolute;
-    bottom: 20px;
+    top: 20px;
     right: 20px;
     background-color: var(--bg-surface);
     border-left: 4px solid var(--danger);
