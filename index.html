@@ -3,240 +3,362 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JSON工具 - 专业级JSON处理平台</title>
-    <link rel="stylesheet" href="styles-simple.css">
+    <title>JSON Editor Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles-simple.css?v=2">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
 </head>
 <body>
-    <!-- 主容器 -->
     <div class="app-container">
-        <!-- 头部导航 -->
+        <!-- Header -->
         <header class="header">
             <div class="header-left">
-                <h1 class="logo">🔧 JSON工具</h1>
-                <div class="theme-switcher">
-                    <button id="themeToggle" class="theme-btn" title="切换主题">🌙</button>
+                <div class="logo-wrapper">
+                    <div class="logo-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#ffffff" viewBox="0 0 256 256"><path d="M184,64H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H184a8,8,0,0,0,8-8V72A8,8,0,0,0,184,64Zm-8,144H48V80H176V208Zm56-120H208v16h24v112H208v16h24a8,8,0,0,0,8-8V96A8,8,0,0,0,232,88Z"></path></svg>
+                    </div>
+                    <span class="logo-text">JSON Editor</span>
                 </div>
             </div>
+
             <div class="header-center">
                 <nav class="main-nav">
                     <button class="nav-btn active" data-tab="formatter">格式化</button>
                     <button class="nav-btn" data-tab="compare">对比</button>
                     <button class="nav-btn" data-tab="generator">生成器</button>
-                    <button class="nav-btn" data-tab="split">分隔栏</button>
+                    <button class="nav-btn" data-tab="converter">转换</button>
+                    <button class="nav-btn" data-tab="split">多窗格</button>
                 </nav>
             </div>
+
             <div class="header-right">
-                <button class="action-btn" id="historyBtn" title="历史记录">📚</button>
-                <button class="action-btn" id="settingsBtn" title="设置">⚙️</button>
-                <button class="action-btn" id="helpBtn" title="帮助">❓</button>
+                <div class="global-actions">
+                    <button class="icon-btn" id="undoBtn" title="撤销 (Cmd+Z)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M237.66,178.34a8,8,0,0,1-11.32,11.32,88,88,0,1,0-77.77,37.52,8,8,0,0,1,1.37,15.94,103.17,103.17,0,0,1-15.09,1.13,104,104,0,1,1,73.55-176.55l22.91-22.91a8,8,0,1,1,11.32,11.32L214.34,84.34A8,8,0,0,1,208,88h-48a8,8,0,0,1,0-16h28.69Z"></path></svg>
+                    </button>
+                    <button class="icon-btn" id="redoBtn" title="重做 (Cmd+Shift+Z)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M248,128a104,104,0,0,1-104,104,103.17,103.17,0,0,1-15.09-1.13,8,8,0,0,1,1.37-15.94,88,88,0,1,0-77.77-37.52,8,8,0,0,1-11.32-11.32L69.66,137.66A8,8,0,0,1,76,144H28a8,8,0,0,1,0-16H56.69L33.66,105.37a8,8,0,0,1,11.32-11.32L67.88,117a104,104,0,0,1,180.12,11Z"></path></svg>
+                    </button>
+                    <div class="divider-vertical"></div>
+                    <button class="icon-btn" id="clearAll" title="清空工作区">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"></path></svg>
+                    </button>
+                    <button class="icon-btn" id="historyBtn" title="历史记录">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M136,80v43.47l36.12,21.67a8,8,0,0,1-8.24,13.72l-40-24A8,8,0,0,1,120,128V80a8,8,0,0,1,16,0Zm8-48A88,88,0,1,0,232,120,88.1,88.1,0,0,0,144,32Zm0,160a72,72,0,1,1,72-72A72.08,72.08,0,0,1,144,192Z"></path></svg>
+                    </button>
+                    <button class="icon-btn" id="themeToggle" title="切换主题">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M233.54,142.23a8,8,0,0,0-8-2,88.08,88.08,0,0,1-109.8-109.8,8,8,0,0,0-10-10,104.84,104.84,0,0,0-52.91,37A104,104,0,0,0,136,224a103.1,103.1,0,0,0,62.52-20.88,104.84,104.84,0,0,0,37-52.91A8,8,0,0,0,233.54,142.23Zm-35.48,35.48a88,88,0,0,1-111-111,88.81,88.81,0,0,0-7.79,6.09A88,88,0,1,1,203.21,172.6Z"></path></svg>
+                    </button>
+                    <button class="icon-btn" id="settingsBtn" title="设置">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M216,132.25A26.82,26.82,0,0,1,215.43,148a27,27,0,0,1-16.23,15.19l-1.08.36a15.38,15.38,0,0,0-9,10.56,78.79,78.79,0,0,1-9.13,22.09,15.34,15.34,0,0,0-.61,13.81l.55,1.09a27,27,0,0,1-5.87,33.95l-1.16,1.05a27,27,0,0,1-37.68-.53l-.67-.65a15.37,15.37,0,0,0-13.48-3.8,78.17,78.17,0,0,1-23.88,0,15.37,15.37,0,0,0-13.48,3.8l-.67.65a27,27,0,0,1-37.68.53l-1.16-1.05a27,27,0,0,1-5.87-33.95l.55-1.09a15.34,15.34,0,0,0-.61-13.81,78.79,78.79,0,0,1-9.13-22.09,15.38,15.38,0,0,0-9-10.56l-1.08-.36A27,27,0,0,1,21.43,148a26.82,26.82,0,0,1-.57-15.75A27,27,0,0,1,37.09,117l1.08-.36a15.38,15.38,0,0,0,9-10.56,78.79,78.79,0,0,1,9.13-22.09,15.34,15.34,0,0,0,.61-13.81l-.55-1.09a27,27,0,0,1,5.87-33.95l1.16-1.05a27,27,0,0,1,37.68.53l.67.65a15.37,15.37,0,0,0,13.48,3.8,78.17,78.17,0,0,1,23.88,0,15.37,15.37,0,0,0,13.48-3.8l.67-.65a27,27,0,0,1,37.68-.53l1.16,1.05a27,27,0,0,1,5.87,33.95l-.55,1.09a15.34,15.34,0,0,0,.61,13.81,78.79,78.79,0,0,1,9.13,22.09,15.38,15.38,0,0,0,9,10.56l1.08.36A27,27,0,0,1,216,132.25ZM128,168a40,40,0,1,0-40-40A40,40,0,0,0,128,168Z"></path></svg>
+                    </button>
+                    <button class="icon-btn" id="helpBtn" title="帮助">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M140,180a12,12,0,1,1-12-12A12,12,0,0,1,140,180ZM128,72c-22.06,0-40,16.15-40,36v4a8,8,0,0,0,16,0v-4c0-11,10.77-20,24-20s24,9,24,20-10.77,20-24,20a8,8,0,0,0-8,8v8a8,8,0,0,0,16,0v-.72c18.24-3.35,32-17.9,32-35.28C168,88.15,150.06,72,128,72Zm104,56A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"></path></svg>
+                    </button>
+                </div>
             </div>
         </header>
 
-        <!-- 工具栏 -->
-        <div class="toolbar">
-            <div class="toolbar-section">
-                <button class="tool-btn" id="clearAll" title="清除所有">🗑️</button>
-            </div>
-            <div class="toolbar-section">
-                <button class="tool-btn" id="undoBtn" title="撤销">↶</button>
-                <button class="tool-btn" id="redoBtn" title="重做">↷</button>
-            </div>
-            <div class="toolbar-section">
-                <span class="status-info" id="statusInfo">就绪</span>
-            </div>
-        </div>
-
-        <!-- 主内容区域 -->
+        <!-- Main Content -->
         <main class="main-content">
-            <!-- 格式化页面 -->
+            <!-- Formatter Tab -->
             <div class="tab-content active" id="formatter-content">
-                <div class="formatter-layout">
-                    <div class="editor-section">
-                        <div class="editor-header">
-                            <h3>JSON编辑器</h3>
-                        <div class="editor-actions">
-                                <label style="margin-right: 10px; font-size: 14px; cursor: pointer;">
-                                    <input type="checkbox" id="deepParseCheckbox" checked style="margin-right: 5px;">
-                                    递归解析JSON字符串
+                <div class="split-layout resizable" id="formatterLayout">
+                    <!-- Input Section -->
+                    <div class="panel editor-panel" style="flex: 1;">
+                        <div class="panel-toolbar">
+                            <div class="toolbar-left">
+                                <span class="panel-title">输入</span>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="deepParseCheckbox" checked>
+                                    <span>递归解析</span>
                                 </label>
-                                <button class="action-btn" id="formatBtn">美化</button>
-                                <button class="action-btn" id="compressBtn">压缩</button>
-                                <button class="action-btn" id="removeEscapeBtn">移除转义符</button>
+                            </div>
+                            <div class="toolbar-right">
+                                <button class="tool-btn" id="removeEscapeBtn" title="移除转义符">移除转义</button>
+                                <div class="divider-vertical"></div>
+                                <button class="tool-btn primary" id="formatBtn">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M216,136a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h40A8,8,0,0,1,216,136Zm-8,56H144a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16Zm8-128H168a8,8,0,0,0,0,16h40a8,8,0,0,0,0-16ZM213.38,27.57a8.09,8.09,0,0,0-8.19.94L132,80.44,58.81,7.25a8,8,0,0,0-11.32,11.31L106.34,80,33.19,153.19A8,8,0,0,0,32,164.69a7.93,7.93,0,0,0,5.66,2.34,8,8,0,0,0,5.65-2.34L117.66,91.31,190.81,164.5A8,8,0,0,0,202.12,153.19l-58.81-58.82,73.19-51.94A8.1,8.1,0,0,0,213.38,27.57Z"></path></svg>
+                                    美化
+                                </button>
+                                <button class="tool-btn" id="compressBtn">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,117.66a8,8,0,0,1-11.32,0L168,91.31V164.69l26.34-26.35a8,8,0,0,1,11.32,11.32l-40,40a8,8,0,0,1-11.32,0l-40-40a8,8,0,0,1,11.32-11.32L152,164.69V91.31L125.66,117.66a8,8,0,0,1-11.32-11.32l40-40a8,8,0,0,1,11.32,0l40,40A8,8,0,0,1,205.66,117.66ZM88,112H40a8,8,0,0,0,0,16H88a8,8,0,0,0,0-16Zm0,64H40a8,8,0,0,0,0,16H88a8,8,0,0,0,0-16Zm0-128H40a8,8,0,0,0,0,16H88a8,8,0,0,0,0-16Z"></path></svg>
+                                    压缩
+                                </button>
                             </div>
                         </div>
-                        <div class="editor-container">
-                            <div class="editor-with-gutter">
-                                <div class="editor-line-numbers" id="jsonEditorLines"></div>
-<textarea id="jsonEditor" placeholder="在这里输入或粘贴JSON数据..." spellcheck="false" wrap="off"></textarea>
-                            </div>
-                            <div class="editor-info">
-                                <span id="lineCount">行: 1</span>
-                                <span id="charCount">字符: 0</span>
-                                <span id="sizeInfo">大小: 0B</span>
-                            </div>
+                        <div class="editor-wrapper">
+                            <div class="line-numbers" id="jsonEditorLines"></div>
+                            <textarea id="jsonEditor" class="code-editor" placeholder="在此输入或粘贴 JSON..." spellcheck="false"></textarea>
+                        </div>
+                        <div class="panel-footer">
+                            <span id="lineCount">行: 1</span>
+                            <span class="dot">·</span>
+                            <span id="charCount">字符: 0</span>
+                            <span class="dot">·</span>
+                            <span id="sizeInfo">大小: 0B</span>
                         </div>
                     </div>
-                    <div class="preview-section">
-                        <div class="preview-header">
-                            <h3>格式化预览</h3>
-                            <div class="preview-actions">
-                                <button class="action-btn" id="expandAll">展开全部</button>
-                                <button class="action-btn" id="collapseAll">折叠全部</button>
-                                <button class="action-btn" id="treeView">树形视图</button>
+
+                    <div class="resizer-gutter" id="formatterResizer"></div>
+
+                    <!-- Preview Section -->
+                    <div class="panel preview-panel" style="flex: 1;">
+                        <div class="panel-toolbar">
+                            <div class="toolbar-left">
+                                <span class="panel-title">预览</span>
+                                <div class="jsonpath-display" style="margin-left: 10px; display: flex; align-items: center;">
+                                    <span style="font-size: 12px; color: var(--text-secondary); margin-right: 5px;">Path:</span>
+                                    <input type="text" id="jsonPathResult" class="input-field" style="height: 24px; width: 400px; font-family: var(--font-mono); font-size: 12px;" readonly placeholder="点击属性生成路径">
+                                </div>
+                            </div>
+                            <div class="toolbar-right">
+                                <button class="tool-btn icon-only" id="expandAll" title="展开全部">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M216,144a8,8,0,0,1-8,8H152v56a8,8,0,0,1-16,0V152H72a8,8,0,0,1,0-16h64V72a8,8,0,0,1,16,0v64h56A8,8,0,0,1,216,144ZM88,24a64,64,0,0,0-64,64,8,8,0,0,0,16,0,48,48,0,0,1,48-48,8,8,0,0,0,0-16Zm144,64a64,64,0,0,0-64-64,8,8,0,0,0,0,16,48,48,0,0,1,48,48,8,8,0,0,0,16,0ZM88,232a8,8,0,0,0,0-16,48,48,0,0,1-48-48,8,8,0,0,0-16,0,64,64,0,0,0,64,64Zm144-64a8,8,0,0,0-16,0,48,48,0,0,1-48,48,8,8,0,0,0,0,16,64,64,0,0,0,64-64Z"></path></svg>
+                                </button>
+                                <button class="tool-btn icon-only" id="collapseAll" title="折叠全部">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M136,128a8,8,0,0,1-8,8H64a8,8,0,0,1,0-16h64A8,8,0,0,1,136,128Zm56-8H168a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16ZM48,88a8,8,0,0,0,16,0,48,48,0,0,1,48-48,8,8,0,0,0,0-16,64,64,0,0,0-64,64Zm64,144a8,8,0,0,0,0-16,48,48,0,0,1-48-48,8,8,0,0,0-16,0,64,64,0,0,0,64,64Zm96-64a64,64,0,0,0-64,64,8,8,0,0,0,0-16,48,48,0,0,1,48-48,8,8,0,0,0,16,0Zm-16-80a48,48,0,0,1-48-48,8,8,0,0,0,0-16,64,64,0,0,0,64,64,8,8,0,0,0,0-16Z"></path></svg>
+                                </button>
+                                <div class="divider-vertical"></div>
+                                <button class="tool-btn" id="treeView" title="切换视图模式">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M208,104H176V72a8,8,0,0,0-16,0v32H136V56a8,8,0,0,0-16,0v48H96V72a8,8,0,0,0-16,0v32H48A16,16,0,0,0,32,120v48a16,16,0,0,0,16,16H80v32a8,8,0,0,0,16,0V184h24v48a8,8,0,0,0,16,0V184h24v32a8,8,0,0,0,16,0V184h32a16,16,0,0,0,16-16V120A16,16,0,0,0,208,104ZM80,168H48V120H80Zm56,0H104V120h32Zm56,0H160V120h32Z"></path></svg>
+                                    树形视图
+                                </button>
                             </div>
                         </div>
-                        <div class="preview-container">
+                        <div class="editor-wrapper">
                             <div id="jsonPreview" class="json-preview"></div>
                         </div>
                     </div>
                 </div>
-                <div class="error-panel" id="errorPanel" style="display: none;">
-                    <div class="error-header">
-                        <h4>⚠️ 错误信息</h4>
-                        <button class="close-btn" id="closeError">×</button>
-                    </div>
+                
+                <!-- Error Toast -->
+                <div class="error-toast" id="errorPanel" style="display: none;">
+                    <div class="error-icon">⚠️</div>
                     <div class="error-content" id="errorContent"></div>
+                    <button class="close-toast" id="closeError">×</button>
                 </div>
-
             </div>
 
-            <!-- 对比页面 -->
+            <!-- Compare Tab -->
             <div class="tab-content" id="compare-content">
-                <div class="compare-toolbar">
-                    <button class="action-btn primary" id="compareBtn">对比</button>
-                </div>
-                <div class="compare-layout">
-                    <div class="compare-left">
-                        <div class="compare-header">
-                            <h3>左侧JSON</h3>
-                            <div class="preview-actions">
-                                <button class="action-btn secondary" id="beautifyLeft">美化</button>
+                <div class="compare-layout-container">
+                    <!-- Left Panel -->
+                    <div class="panel compare-panel">
+                        <div class="panel-toolbar">
+                            <span class="panel-title">原始 JSON</span>
+                            <div class="toolbar-right">
+                                <button class="tool-btn" id="loadDemoBtn" title="加载机型比价示例">示例</button>
+                                <button class="tool-btn" id="beautifyLeft">美化</button>
                             </div>
                         </div>
-                        <div class="compare-input-container">
-                            <div class="editor-with-gutter">
-                                <div class="editor-line-numbers" id="leftJsonLines"></div>
-                                <div class="editor-text-wrap">
-                                    <textarea id="leftJson" placeholder="输入或粘贴第一个JSON..."></textarea>
-                                </div>
-                            </div>
+                        <div class="editor-wrapper">
+                            <div class="line-numbers" id="leftJsonLines"></div>
+                            <textarea id="leftJson" class="code-editor" placeholder="输入原始 JSON..."></textarea>
                         </div>
                     </div>
-                    <div class="compare-right">
-                        <div class="compare-header">
-                            <h3>右侧JSON</h3>
-                            <div class="preview-actions">
-                                <button class="action-btn secondary" id="beautifyRight">美化</button>
-                            </div>
+
+                    <!-- Center Action -->
+                    <div class="compare-action">
+                        <button class="action-fab" id="compareBtn" title="对比">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M200,216H144a8,8,0,0,1,0-16h48V136H136a8,8,0,0,1-8-8V80H88a8,8,0,0,1,0-16h40V40a8,8,0,0,1,13.66-5.66l48,48a8,8,0,0,1,0,11.32l-48,48A8,8,0,0,1,128,136V104a8,8,0,0,1-8,8h64V208A8,8,0,0,1,200,216Zm-72-80a8,8,0,0,0,0,16h48a8,8,0,0,1,8,8v64H64V160h56a8,8,0,0,0,0-16H56a8,8,0,0,0-8,8v80a8,8,0,0,0,8,8H192a8,8,0,0,0,8-8v-7.47l-37.66-37.66A8,8,0,0,0,156.69,136Z"></path></svg>
+                        </button>
+                    </div>
+
+                    <!-- Right Panel -->
+                    <div class="panel compare-panel">
+                        <div class="panel-toolbar">
+                            <span class="panel-title">新 JSON</span>
+                            <button class="tool-btn" id="beautifyRight">美化</button>
                         </div>
-                        <div class="compare-input-container">
-                            <div class="editor-with-gutter">
-                                <div class="editor-line-numbers" id="rightJsonLines"></div>
-                                <div class="editor-text-wrap">
-                                    <textarea id="rightJson" placeholder="输入或粘贴第二个JSON..." ></textarea>
-                                </div>
-                            </div>
+                        <div class="editor-wrapper">
+                            <div class="line-numbers" id="rightJsonLines"></div>
+                            <textarea id="rightJson" class="code-editor" placeholder="输入对比 JSON..."></textarea>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- 生成器页面 -->
+
+            <!-- Generator Tab -->
             <div class="tab-content" id="generator-content">
-                <div class="generator-layout">
-                    <div class="generator-sidebar">
-                        <h3>数据模板</h3>
-                        <div class="template-list">
-                            <button class="template-btn" data-template="user">用户信息</button>
-                            <button class="template-btn" data-template="product">商品数据</button>
-                            <button class="template-btn" data-template="order">订单记录</button>
-                            <button class="template-btn" data-template="address">地址信息</button>
-                            <button class="template-btn" data-template="company">公司信息</button>
-                            <button class="template-btn" data-template="article">文章内容</button>
-                            <button class="template-btn" data-template="api">API响应</button>
-                            <button class="template-btn" data-template="config">配置文件</button>
+                <div class="generator-container">
+                    <div class="panel generator-sidebar">
+                        <div class="panel-toolbar">
+                            <span class="panel-title">模板选择</span>
                         </div>
-                        <div class="generator-options">
-                            <h4>生成选项</h4>
-                            <label>
-                                数量: <input type="number" id="generateCount" value="1" min="1" max="1000">
-                            </label>
-                            <label>
-                                <input type="checkbox" id="generateArray"> 生成数组
-                            </label>
-                            <label>
-                                <input type="checkbox" id="randomizeFields"> 随机字段
-                            </label>
-                            <label>
-                                语言:
-                                <select id="localeSelect">
-                                    <option value="zh_CN">中文</option>
-                                    <option value="en_US">英文</option>
-                                    <option value="ja_JP">日文</option>
+                        <div class="template-grid">
+                            <button class="template-card" data-template="user">
+                                <div class="card-icon">👤</div>
+                                <span>用户信息</span>
+                            </button>
+                            <button class="template-card" data-template="product">
+                                <div class="card-icon">📦</div>
+                                <span>商品数据</span>
+                            </button>
+                            <button class="template-card" data-template="order">
+                                <div class="card-icon">🧾</div>
+                                <span>订单记录</span>
+                            </button>
+                            <button class="template-card" data-template="address">
+                                <div class="card-icon">📍</div>
+                                <span>地址信息</span>
+                            </button>
+                            <button class="template-card" data-template="company">
+                                <div class="card-icon">🏢</div>
+                                <span>公司信息</span>
+                            </button>
+                            <button class="template-card" data-template="article">
+                                <div class="card-icon">📄</div>
+                                <span>文章内容</span>
+                            </button>
+                            <button class="template-card" data-template="api">
+                                <div class="card-icon">🔌</div>
+                                <span>API响应</span>
+                            </button>
+                            <button class="template-card" data-template="config">
+                                <div class="card-icon">⚙️</div>
+                                <span>配置文件</span>
+                            </button>
+                        </div>
+
+                        <div class="config-section">
+                            <div class="config-group">
+                                <label>生成数量</label>
+                                <input type="number" id="generateCount" value="1" min="1" max="1000" class="input-field">
+                            </div>
+                            <div class="config-group">
+                                <label>语言区域</label>
+                                <select id="localeSelect" class="select-field">
+                                    <option value="zh_CN">中文 (简体)</option>
+                                    <option value="en_US">English (US)</option>
+                                    <option value="ja_JP">日本語</option>
                                 </select>
-                            </label>
+                            </div>
+                            <div class="config-row">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="generateArray">
+                                    <span>生成数组</span>
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="randomizeFields">
+                                    <span>随机字段</span>
+                                </label>
+                            </div>
+                            <button class="btn-block primary" id="generateBtn">生成数据</button>
                         </div>
                     </div>
-                    <div class="generator-main">
-                        <div class="generator-header">
-                            <h3>生成结果</h3>
-                            <div class="generator-actions">
-                                <button class="action-btn" id="generateBtn">生成数据</button>
-                                <button class="action-btn" id="useGenerated">使用</button>
+
+                    <div class="panel generator-result">
+                        <div class="panel-toolbar">
+                            <span class="panel-title">结果预览</span>
+                            <button class="tool-btn" id="useGenerated">使用此数据</button>
+                        </div>
+                        <div class="editor-wrapper">
+                            <textarea id="generatedJson" class="code-editor" placeholder="结果将显示在此处..." readonly></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Converter Tab -->
+            <div class="tab-content" id="converter-content">
+                <div class="converter-container" style="height: 100%; display: flex; flex-direction: column; gap: 16px;">
+                    <div class="panel converter-options" style="flex-shrink: 0; padding: 12px;">
+                        <div class="config-row" style="align-items: center;">
+                            <div class="config-group" style="flex: 1;">
+                                <label>转换模式</label>
+                                <select id="converterMode" class="select-field">
+                                    <option value="json2java">JSON 转 Java Entity (@Data)</option>
+                                    <option value="json2sql">JSON 转 SQL Insert</option>
+                                    <option value="sql2json">SQL Insert 转 JSON</option>
+                                </select>
+                            </div>
+                            <div class="config-group" id="javaOptions" style="flex: 1;">
+                                <label>主类名</label>
+                                <input type="text" id="javaClassName" class="input-field" value="RootObject" placeholder="例如: UserDTO">
+                            </div>
+                            <div class="config-group" id="sqlOptions" style="flex: 1; display: none;">
+                                <label>表名</label>
+                                <input type="text" id="sqlTableName" class="input-field" value="table_name">
+                            </div>
+                            <div style="align-self: flex-end;">
+                                <button class="tool-btn primary" id="convertBtn">执行转换</button>
                             </div>
                         </div>
-                        <div class="generated-content">
-                            <textarea id="generatedJson" placeholder="生成的JSON数据将显示在这里..." readonly></textarea>
+                    </div>
+
+                    <div class="split-layout">
+                        <div class="panel">
+                            <div class="panel-toolbar">
+                                <span class="panel-title" id="converterInputTitle">输入 (JSON)</span>
+                                <button class="tool-btn" id="converterFormatInput">格式化</button>
+                            </div>
+                            <div class="editor-wrapper">
+                                <textarea id="converterInput" class="code-editor" placeholder="在此输入..."></textarea>
+                            </div>
+                        </div>
+                        <div class="panel">
+                            <div class="panel-toolbar">
+                                <span class="panel-title" id="converterOutputTitle">输出 (Java)</span>
+                                <button class="tool-btn" id="copyConverterOutput">复制结果</button>
+                            </div>
+                            <div class="editor-wrapper">
+                                <textarea id="converterOutput" class="code-editor" placeholder="结果将显示在此处..." readonly></textarea>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 分隔栏页面 -->
+            <!-- Split Tab -->
             <div class="tab-content" id="split-content">
-                <div class="multi-split-wrapper">
-                    <div class="multi-split-header">
-                        <h3>分隔栏</h3>
-                        <div class="multi-split-actions">
-                            <button class="action-btn" id="addSplitPane">添加分隔栏</button>
-                        </div>
+                <div class="split-view-container">
+                    <div class="split-header-action">
+                        <button class="btn-pill" id="addSplitPane">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"></path></svg>
+                            添加分隔栏
+                        </button>
                     </div>
-                    <div id="multiSplitContainer" class="multi-split-container" aria-label="可拖拽多分隔栏容器"></div>
+                    <div id="multiSplitContainer" class="multi-split-grid"></div>
                 </div>
             </div>
-
         </main>
 
-        <!-- 侧边栏 -->
-        <aside class="sidebar" id="sidebar" style="display: none;">
-            <div class="sidebar-header">
-                <h3 id="sidebarTitle">侧边栏</h3>
-                <button class="close-btn" id="closeSidebar">×</button>
-            </div>
-            <div class="sidebar-content" id="sidebarContent"></div>
-        </aside>
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <div class="status-item" id="statusInfo">就绪</div>
+        </footer>
 
-        <!-- 模态对话框 -->
-        <div class="modal" id="modal" style="display: none;">
-            <div class="modal-content">
+        <!-- Overlays -->
+        <div class="overlay" id="modal" style="display: none;">
+            <div class="modal-dialog">
                 <div class="modal-header">
-                    <h3 id="modalTitle">对话框</h3>
-                    <button class="close-btn" id="closeModal">×</button>
+                    <h3 id="modalTitle">提示</h3>
+                    <button class="icon-btn" id="closeModal">×</button>
                 </div>
                 <div class="modal-body" id="modalBody"></div>
                 <div class="modal-footer" id="modalFooter">
-                    <button class="action-btn secondary" id="modalCancel">取消</button>
-                    <button class="action-btn primary" id="modalConfirm">确认</button>
+                    <button class="btn-text" id="modalCancel">取消</button>
+                    <button class="btn-primary" id="modalConfirm">确认</button>
                 </div>
             </div>
         </div>
+        
+        <aside class="sidebar-overlay" id="sidebar" style="display: none;">
+            <div class="sidebar-panel">
+                <div class="sidebar-header">
+                    <h3 id="sidebarTitle">设置</h3>
+                    <button class="icon-btn" id="closeSidebar">×</button>
+                </div>
+                <div class="sidebar-content" id="sidebarContent"></div>
+            </div>
+        </aside>
 
-        <!-- 浮动通知 -->
-        <div class="notifications" id="notifications"></div>
+        <div class="toast-container" id="notifications"></div>
     </div>
 
-
-    <!-- JavaScript -->
-    <script src="scripts.js"></script>
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>
