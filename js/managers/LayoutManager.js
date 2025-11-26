@@ -229,19 +229,18 @@ export class LayoutManager {
                 let startX;
                 let startWidths = [];
 
-                resizer.addEventListener('mousedown', (e) => {
+                const onMouseDown = (e) => {
                     isDragging = true;
                     startX = e.clientX;
                     startWidths = this.splitPaneWidths.slice(); // Copy current state
                     document.body.style.cursor = 'col-resize';
                     document.body.style.userSelect = 'none';
-                });
+                    resizer.classList.add('dragging');
 
-                // We need global mousemove/mouseup for drag
-                // To avoid memory leaks or duplicates, we can attach them to document once 
-                // or use a closure if we are careful. Since renderMultiSplit re-renders, 
-                // let's attach temporary listeners to document.
-                
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                };
+
                 const onMove = (e) => {
                     if (!isDragging) return;
                     e.preventDefault();
@@ -259,8 +258,7 @@ export class LayoutManager {
                         this.splitPaneWidths[i] = newCurrentW;
                         this.splitPaneWidths[i+1] = newNextW;
                         
-                        // We can optimize by directly setting style instead of re-rendering entire DOM
-                        // But for simplicity in this prompt, let's update styles directly first
+                        // Update DOM directly for performance
                         const panes = container.querySelectorAll('.multi-pane');
                         panes[i].style.flex = `${newCurrentW} 0 0%`;
                         panes[i+1].style.flex = `${newNextW} 0 0%`;
@@ -270,17 +268,19 @@ export class LayoutManager {
                 const onUp = () => {
                     if (isDragging) {
                         isDragging = false;
+                        resizer.classList.remove('dragging');
                         document.body.style.cursor = '';
                         document.body.style.userSelect = '';
                         document.removeEventListener('mousemove', onMove);
                         document.removeEventListener('mouseup', onUp);
+                        
                         this.saveSplitLayout();
+                        // Re-render to ensure clean state
+                        this.renderMultiSplit();
                     }
                 };
 
-                document.addEventListener('mousemove', onMove);
-                document.addEventListener('mouseup', onUp);
-                
+                resizer.addEventListener('mousedown', onMouseDown);
                 container.appendChild(resizer);
             }
         });

@@ -1061,6 +1061,9 @@ select.select-field {
     background-color: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
+    overflow: visible; /* Allow dropdowns to spill out */
+    height: auto;
+    min-height: min-content;
 }
 
 /* Media Queries */
