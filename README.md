@@ -43,7 +43,7 @@
 1. **下载代码**：
    克隆或下载本项目到本地。
    ```bash
-   git clone https://github.com/your-repo/json-editor-pro.git
+   git clone https://github.com/yy36295238/my-json-diff-chrome-plugin.git
    ```
 
 2. **打开 Chrome 扩展管理页面**：
