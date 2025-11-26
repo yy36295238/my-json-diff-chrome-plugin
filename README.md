@@ -2,6 +2,13 @@
 
 JSON Editor Pro 是一款专为开发者和数据分析师设计的现代化 Chrome 扩展。它提供了一套功能强大的工具，用于在浏览器中直接格式化、校验、比较、转换和生成 JSON 数据。
 
+## 示例
+<img width="1918" height="924" alt="image" src="https://github.com/user-attachments/assets/d681879d-52b4-4e34-8301-848d315be0cb" />
+<img width="1900" height="924" alt="image" src="https://github.com/user-attachments/assets/51f865d8-4c40-4d37-a293-c725003d510a" />
+<img width="1916" height="919" alt="image" src="https://github.com/user-attachments/assets/caeb27fa-2454-473a-b420-a6a38693decb" />
+
+
+
 ## ✨ 核心功能
 
 ### 1. 格式化与校验 (Formatter & Validator)
