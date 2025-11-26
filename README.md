@@ -37,7 +37,7 @@ JSON Editor Pro 是一款专为开发者和数据分析师设计的现代化 Chr
 
 1.  **克隆仓库:**
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/yy36295238/my-json-diff-chrome-plugin.git
     cd my-json-diff-chrome-plugin
     ```
 
