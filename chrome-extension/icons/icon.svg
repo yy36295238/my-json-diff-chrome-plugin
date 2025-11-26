@@ -1,34 +1,17 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-    </linearGradient>
-  </defs>
-
-  <!-- 背景 -->
-  <rect width="128" height="128" fill="url(#bgGradient)" rx="20" />
-
-  <!-- 圆角矩形装饰 -->
-  <rect x="12.8" y="12.8" width="102.4" height="102.4" rx="19.2" fill="rgba(255,255,255,0.1)" />
-
-  <!-- 左大括号 -->
-  <text x="32" y="70" font-family="Courier New, monospace" font-size="58" font-weight="bold" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">{</text>
-
-  <!-- 右大括号 -->
-  <text x="96" y="70" font-family="Courier New, monospace" font-size="58" font-weight="bold" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">}</text>
-
-  <!-- 中间JSON符号 -->
-  <text x="64" y="70" font-family="Courier New, monospace" font-size="28" font-weight="bold" fill="#ffd700" text-anchor="middle" dominant-baseline="middle">{ }</text>
-
-  <!-- 装饰点 - 上方 -->
-  <circle cx="44.8" cy="38.4" r="4" fill="rgba(255,255,255,0.6)" />
-  <circle cx="64" cy="35.84" r="4" fill="rgba(255,255,255,0.6)" />
-  <circle cx="83.2" cy="38.4" r="4" fill="rgba(255,255,255,0.6)" />
-
-  <!-- 装饰点 - 下方 -->
-  <circle cx="44.8" cy="95" r="4" fill="rgba(255,255,255,0.6)" />
-  <circle cx="64" cy="97" r="4" fill="rgba(255,255,255,0.6)" />
-  <circle cx="83.2" cy="95" r="4" fill="rgba(255,255,255,0.6)" />
+  <!-- Background: Primary Indigo (#4f46e5) -->
+  <rect x="0" y="0" width="128" height="128" rx="28" fill="#4f46e5" />
+  
+  <!-- Left Bracket < (White) -->
+  <path d="M40 34 L24 64 L40 94" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- Right Bracket > (White) -->
+  <path d="M88 34 L104 64 L88 94" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- Center Accents -->
+  <!-- Magenta Dot (Key) -->
+  <circle cx="64" cy="48" r="8" fill="#d946ef" />
+  
+  <!-- Green Dot (Value) -->
+  <circle cx="64" cy="80" r="8" fill="#22c55e" />
 </svg>

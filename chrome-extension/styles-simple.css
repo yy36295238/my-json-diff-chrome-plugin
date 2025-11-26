@@ -457,8 +457,8 @@ button {
     word-wrap: break-word;
 }
 
-.json-key { color: #d946ef; font-weight: 600; } /* Magenta */
-[data-theme="dark"] .json-key { color: #e879f9; }
+.json-key { color: #0a64b9; font-weight: 600; }
+[data-theme="dark"] .json-key { color: #78c1f3; }
 
 .json-string { color: #22c55e; } /* Green */
 [data-theme="dark"] .json-string { color: #4ade80; }

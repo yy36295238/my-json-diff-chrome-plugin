@@ -1,169 +1,127 @@
 #!/usr/bin/env python3
 """
-生成Chrome扩展所需的PNG图标 - 改进版
+Generate modern icons for the JSON Diff Chrome Extension.
+Design: Indigo background (App Primary) with White brackets and colored accents.
+Matches the 'Modern Design System' of the application.
 """
 
 from PIL import Image, ImageDraw, ImageFont
 import os
 
-def interpolate_color(color1, color2, factor):
-    """在两个颜色之间插值"""
-    return tuple(int(c1 + (c2 - c1) * factor) for c1, c2 in zip(color1, color2))
-
-def create_gradient_background(size):
-    """创建渐变背景"""
-    img = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-
-    # 渐变颜色
-    color_start = (102, 126, 234)  # #667eea
-    color_end = (118, 75, 162)     # #764ba2
-
-    # 逐行绘制渐变
-    for y in range(size):
-        factor = y / size
-        color = interpolate_color(color_start, color_end, factor)
-        draw.line([(0, y), (size, y)], fill=color)
-
-    # 创建圆角蒙版
-    mask = Image.new('L', (size, size), 0)
-    mask_draw = ImageDraw.Draw(mask)
-    radius = int(size * 0.15625)  # 20/128
-    mask_draw.rounded_rectangle([(0, 0), (size, size)], radius=radius, fill=255)
-
-    # 应用蒙版
-    result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    result.paste(img, (0, 0), mask)
-
-    return result
-
 def create_icon(size):
-    """创建指定尺寸的图标"""
-    # 创建渐变背景
-    img = create_gradient_background(size)
+    """Create an icon of the specified size."""
+    
+    # 1. Setup Canvas & Background
+    # Draw at 4x scale for anti-aliasing
+    scale_factor = 4
+    canvas_size = size * scale_factor
+    
+    img = Image.new('RGBA', (canvas_size, canvas_size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-
-    # 绘制内部装饰矩形
-    inner_margin = int(size * 0.1)
-    inner_size = int(size * 0.8)
-    inner_radius = int(size * 0.15)
-
-    # 创建半透明白色覆盖层
-    overlay = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    overlay_draw = ImageDraw.Draw(overlay)
-    overlay_draw.rounded_rectangle(
-        [(inner_margin, inner_margin), (inner_margin + inner_size, inner_margin + inner_size)],
-        radius=inner_radius,
-        fill=(255, 255, 255, 25)  # rgba(255,255,255,0.1)
+    
+    # Background Color: Primary Indigo from CSS
+    # --primary: hsl(230, 70%, 50%) -> approx #4f46e5
+    # Let's use a vibrant Indigo.
+    bg_color = (79, 70, 229) # #4f46e5
+    
+    # Draw Rounded Rectangle Background
+    # Radius ~ 22% of size (Matches CSS .radius-lg roughly relative to icon size)
+    radius = int(canvas_size * 0.22)
+    draw.rounded_rectangle(
+        [(0, 0), (canvas_size, canvas_size)],
+        radius=radius,
+        fill=bg_color
     )
-    img = Image.alpha_composite(img, overlay)
-    draw = ImageDraw.Draw(img)
+    
+    # 2. Draw Brackets { }
+    # Color: White (Text on Primary)
+    bracket_color = (255, 255, 255)
+    
+    stroke_width = int(canvas_size * 0.1)
+    
+    # Bracket Geometry
+    cx, cy = canvas_size / 2, canvas_size / 2
+    offset_x = canvas_size * 0.22
+    bracket_height = canvas_size * 0.5
+    bracket_width = canvas_size * 0.2
+    
+    def draw_bracket_poly(draw_obj, x_center, y_center, w, h, stroke, color, is_right):
+        """Draws a polygonal bracket representation."""
+        direction = 1 if is_right else -1
+        
+        # Points for a angular bracket (Tech/Code look)
+        # Top Tip, Middle Point, Bottom Tip
+        
+        # Top
+        p1 = (x_center - (w/2 * direction), y_center - h/2)
+        # Mid (Point)
+        p2 = (x_center + (w/2 * direction), y_center)
+        # Bottom
+        p3 = (x_center - (w/2 * direction), y_center + h/2)
+        
+        # To give it thickness, we draw a line with width
+        # Using joint='curve' makes the corners rounded
+        draw_obj.line([p1, p2, p3], fill=color, width=int(stroke), joint='curve')
 
-    # 计算文字位置
-    left_x = int(size * 0.25)
-    right_x = int(size * 0.75)
-    center_x = int(size * 0.5)
-    y_center = int(size * 0.55)
+    # Draw Left Bracket < (representing {)
+    draw_bracket_poly(draw, cx - offset_x, cy, bracket_width, bracket_height, stroke_width, bracket_color, is_right=False)
+    
+    # Draw Right Bracket > (representing })
+    draw_bracket_poly(draw, cx + offset_x, cy, bracket_width, bracket_height, stroke_width, bracket_color, is_right=True)
 
-    # 尝试加载字体
-    font_large = None
-    font_small = None
-    font_size_large = int(size * 0.45)
-    font_size_small = int(size * 0.22)
+    # 3. Draw Central Accents (The "Diff" or "JSON" content)
+    # Two dots: One Magenta (Key), One Green (Value)
+    # Representing the colorful syntax highlighting in the app
+    
+    dot_radius = int(canvas_size * 0.07)
+    dot_spacing = int(canvas_size * 0.0) # Vertical spacing from center
+    
+    # Magenta Dot (Top - Key)
+    # color: #d946ef -> (217, 70, 239)
+    color_accent_1 = (217, 70, 239)
+    
+    # Green Dot (Bottom - Value)
+    # color: #22c55e -> (34, 197, 94)
+    color_accent_2 = (34, 197, 94)
+    
+    # Draw dots in the vertical center space between brackets
+    # Top dot
+    draw.ellipse(
+        [(cx - dot_radius, cy - dot_radius * 2.5), 
+         (cx + dot_radius, cy - dot_radius * 0.5)],
+        fill=color_accent_1
+    )
+    
+    # Bottom dot
+    draw.ellipse(
+        [(cx - dot_radius, cy + dot_radius * 0.5), 
+         (cx + dot_radius, cy + dot_radius * 2.5)],
+        fill=color_accent_2
+    )
 
-    # macOS 字体路径
-    font_paths = [
-        '/System/Library/Fonts/Courier.dfont',
-        '/System/Library/Fonts/Monaco.dfont',
-        '/Library/Fonts/Courier New.ttf',
-    ]
-
-    for font_path in font_paths:
-        try:
-            if os.path.exists(font_path):
-                font_large = ImageFont.truetype(font_path, font_size_large)
-                font_small = ImageFont.truetype(font_path, font_size_small)
-                break
-        except:
-            continue
-
-    # 如果没找到字体，绘制简单的图形代替
-    if not font_large:
-        # 绘制大括号路径
-        bracket_width = int(size * 0.08)
-        bracket_height = int(size * 0.3)
-        bracket_y_top = int(size * 0.25)
-
-        # 左大括号
-        draw.arc([(left_x - bracket_width, bracket_y_top),
-                  (left_x, bracket_y_top + bracket_height)],
-                 start=90, end=270, fill=(255, 255, 255), width=int(size * 0.05))
-
-        # 右大括号
-        draw.arc([(right_x, bracket_y_top),
-                  (right_x + bracket_width, bracket_y_top + bracket_height)],
-                 start=270, end=90, fill=(255, 255, 255), width=int(size * 0.05))
-
-        # 中间的圆形装饰
-        circle_radius = int(size * 0.1)
-        draw.ellipse([(center_x - circle_radius, y_center - circle_radius),
-                     (center_x + circle_radius, y_center + circle_radius)],
-                     outline=(255, 215, 0), width=int(size * 0.03))
-    else:
-        # 绘制文字 - 左大括号
-        draw.text((left_x, y_center), '{', fill=(255, 255, 255), font=font_large, anchor='mm')
-        # 右大括号
-        draw.text((right_x, y_center), '}', fill=(255, 255, 255), font=font_large, anchor='mm')
-        # 中间的JSON符号
-        draw.text((center_x, y_center), '{ }', fill=(255, 215, 0), font=font_small, anchor='mm')
-
-    # 绘制装饰点
-    dot_radius = max(2, int(size * 0.03125))
-    dot_color = (255, 255, 255, 153)  # rgba(255,255,255,0.6)
-
-    # 上方三个点
-    dots_top = [
-        (int(size * 0.35), int(size * 0.3)),
-        (int(size * 0.5), int(size * 0.28)),
-        (int(size * 0.65), int(size * 0.3))
-    ]
-
-    # 下方三个点
-    dots_bottom = [
-        (int(size * 0.35), int(size * 0.74)),
-        (int(size * 0.5), int(size * 0.76)),
-        (int(size * 0.65), int(size * 0.74))
-    ]
-
-    for x, y in dots_top + dots_bottom:
-        draw.ellipse([(x - dot_radius, y - dot_radius),
-                     (x + dot_radius, y + dot_radius)],
-                     fill=dot_color)
-
+    # 4. Downsample to target size
+    img = img.resize((size, size), Image.Resampling.LANCZOS)
     return img
 
 def main():
-    """生成所有尺寸的图标"""
+    """Generate all icons."""
     sizes = [16, 32, 48, 128]
     output_dir = 'chrome-extension/icons'
-
-    # 确保输出目录存在
     os.makedirs(output_dir, exist_ok=True)
-
-    print('🎨 开始生成JSON工具图标...\n')
-
+    
+    print("🎨 Generating Modern Design System icons...")
+    
     for size in sizes:
-        print(f'生成 {size}x{size} 图标...')
-        img = create_icon(size)
-        output_path = os.path.join(output_dir, f'icon{size}.png')
-        img.save(output_path, 'PNG')
-        file_size = os.path.getsize(output_path)
-        print(f'✓ 已保存: {output_path} ({file_size} bytes)')
+        try:
+            img = create_icon(size)
+            filename = f"icon{size}.png"
+            path = os.path.join(output_dir, filename)
+            img.save(path, "PNG")
+            print(f"  ✓ Generated {filename}")
+        except Exception as e:
+            print(f"  ✗ Error generating {size}x{size}: {e}")
 
-    print('\n✅ 所有图标生成完成!')
-    print('\n📋 生成的图标列表:')
-    for size in sizes:
-        print(f'  - icon{size}.png')
+    print("\n✅ Done! Icons updated to match app theme.")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
