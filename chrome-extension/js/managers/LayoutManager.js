@@ -27,6 +27,7 @@ export class LayoutManager {
         if (addSplitBtn) addSplitBtn.addEventListener('click', () => this.addSplitPane());
 
         this.initMultiSplit();
+        this.initFormatterResizer(); // Call formatter resizer init
     }
 
     switchTab(tabName) {
@@ -133,6 +134,68 @@ export class LayoutManager {
         this.renderMultiSplit();
     }
 
+    initFormatterResizer() {
+        const resizer = document.getElementById('formatterResizer');
+        if (!resizer) return;
+
+        const layout = document.getElementById('formatterLayout');
+        const leftPanel = layout.querySelector('.editor-panel');
+        const rightPanel = layout.querySelector('.preview-panel');
+
+        let isDragging = false;
+        let startX, startLeftWidth, startRightWidth;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX;
+            
+            // Use getBoundingClientRect for precise pixel widths
+            startLeftWidth = leftPanel.getBoundingClientRect().width;
+            startRightWidth = rightPanel.getBoundingClientRect().width;
+            
+            resizer.classList.add('dragging');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+
+            const dx = e.clientX - startX;
+            const totalWidth = startLeftWidth + startRightWidth;
+            
+            let newLeftWidth = startLeftWidth + dx;
+            let newRightWidth = startRightWidth - dx;
+
+            // Min width constraints
+            const minWidth = 200;
+            if (newLeftWidth < minWidth) {
+                newLeftWidth = minWidth;
+                newRightWidth = totalWidth - minWidth;
+            } else if (newRightWidth < minWidth) {
+                newRightWidth = minWidth;
+                newLeftWidth = totalWidth - minWidth;
+            }
+
+            // Flex-grow ratio based on pixel width
+            // Actually for flex layout, setting flex-basis or just flex-grow is tricky if we want pixel precision.
+            // A robust way is to set flex-grow proportional to width
+            
+            leftPanel.style.flex = `${newLeftWidth} 1 0%`;
+            rightPanel.style.flex = `${newRightWidth} 1 0%`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                resizer.classList.remove('dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+    }
+
     renderMultiSplit() {
         const container = document.getElementById('multiSplitContainer');
         if (!container) return;
@@ -155,10 +218,69 @@ export class LayoutManager {
                 </div>
             `;
             container.appendChild(pane);
+            
+            // Add Resizer logic
             if (i < this.splitPaneWidths.length - 1) {
                 const resizer = document.createElement('div');
                 resizer.className = 'multi-split-resizer';
-                // Add drag logic here (simplified for brevity)
+                
+                // Attach Drag Logic
+                let isDragging = false;
+                let startX;
+                let startWidths = [];
+
+                const onMouseDown = (e) => {
+                    isDragging = true;
+                    startX = e.clientX;
+                    startWidths = this.splitPaneWidths.slice(); // Copy current state
+                    document.body.style.cursor = 'col-resize';
+                    document.body.style.userSelect = 'none';
+                    resizer.classList.add('dragging');
+
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                };
+
+                const onMove = (e) => {
+                    if (!isDragging) return;
+                    e.preventDefault();
+                    
+                    const containerWidth = container.getBoundingClientRect().width;
+                    const dx = e.clientX - startX;
+                    const deltaPercent = dx / containerWidth;
+
+                    // Adjust width of current pane (i) and next pane (i+1)
+                    const newCurrentW = Math.max(0.05, startWidths[i] + deltaPercent);
+                    const newNextW = Math.max(0.05, startWidths[i+1] - deltaPercent);
+
+                    // Check bounds implicitly by ensuring neither goes below threshold
+                    if (newCurrentW >= 0.05 && newNextW >= 0.05) {
+                        this.splitPaneWidths[i] = newCurrentW;
+                        this.splitPaneWidths[i+1] = newNextW;
+                        
+                        // Update DOM directly for performance
+                        const panes = container.querySelectorAll('.multi-pane');
+                        panes[i].style.flex = `${newCurrentW} 0 0%`;
+                        panes[i+1].style.flex = `${newNextW} 0 0%`;
+                    }
+                };
+
+                const onUp = () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        resizer.classList.remove('dragging');
+                        document.body.style.cursor = '';
+                        document.body.style.userSelect = '';
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                        
+                        this.saveSplitLayout();
+                        // Re-render to ensure clean state
+                        this.renderMultiSplit();
+                    }
+                };
+
+                resizer.addEventListener('mousedown', onMouseDown);
                 container.appendChild(resizer);
             }
         });

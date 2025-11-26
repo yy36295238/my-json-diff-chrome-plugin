@@ -65,7 +65,7 @@
         <main class="main-content">
             <!-- Formatter Tab -->
             <div class="tab-content active" id="formatter-content">
-                <div class="split-layout">
+                <div class="split-layout resizable" id="formatterLayout">
                     <!-- Input Section -->
                     <div class="panel editor-panel">
                         <div class="panel-toolbar">
@@ -102,6 +102,8 @@
                         </div>
                     </div>
 
+                    <div class="resizer-gutter" id="formatterResizer"></div>
+
                     <!-- Preview Section -->
                     <div class="panel preview-panel">
                         <div class="panel-toolbar">
@@ -109,7 +111,7 @@
                                 <span class="panel-title">预览</span>
                                 <div class="jsonpath-display" style="margin-left: 10px; display: flex; align-items: center;">
                                     <span style="font-size: 12px; color: var(--text-secondary); margin-right: 5px;">Path:</span>
-                                    <input type="text" id="jsonPathResult" class="input-field" style="height: 24px; width: 200px; font-family: var(--font-mono); font-size: 12px;" readonly placeholder="点击属性生成路径">
+                                    <input type="text" id="jsonPathResult" class="input-field" style="height: 24px; width: 400px; font-family: var(--font-mono); font-size: 12px;" readonly placeholder="点击属性生成路径">
                                 </div>
                             </div>
                             <div class="toolbar-right">

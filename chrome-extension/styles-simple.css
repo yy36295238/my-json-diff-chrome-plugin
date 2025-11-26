@@ -244,13 +244,19 @@ button {
 
 /* Layouts */
 .split-layout {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
     gap: 16px;
     height: 100%;
+    width: 100%;
+}
+
+.split-layout.resizable {
+    gap: 0;
 }
 
 .panel {
+    flex: 1;
+    min-width: 200px; /* Prevent full collapse */
     background-color: var(--bg-surface);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-color);
@@ -259,6 +265,31 @@ button {
     overflow: hidden;
     box-shadow: var(--shadow-sm);
     transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* Resizer Styles */
+.resizer-gutter {
+    width: 16px;
+    cursor: col-resize;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+    z-index: 10;
+    position: relative;
+}
+
+.resizer-gutter::after {
+    content: '';
+    width: 4px;
+    height: 40px;
+    background-color: var(--border-color);
+    border-radius: 2px;
+    transition: background-color 0.2s;
+}
+
+.resizer-gutter:hover::after, .resizer-gutter.dragging::after {
+    background-color: var(--primary);
 }
 
 .panel:focus-within {
@@ -1030,6 +1061,9 @@ select.select-field {
     background-color: var(--bg-surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
+    overflow: visible; /* Allow dropdowns to spill out */
+    height: auto;
+    min-height: min-content;
 }
 
 /* Media Queries */
