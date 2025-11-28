@@ -249,7 +249,7 @@ export class CompareManager {
         contentContainer.style.willChange = 'transform';
         
         let html = '';
-        const lineHeight = 21; 
+        const lineHeight = 22; 
         const paddingTop = 10; 
 
         diffLines.forEach((diffLine, index) => {
