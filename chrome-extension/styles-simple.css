@@ -390,7 +390,7 @@ button {
 }
 
 .line-numbers div {
-    height: 21px; /* Match line-height of textarea */
+    height: 22px; /* Match line-height of textarea */
 }
 
 .code-editor {
@@ -400,8 +400,8 @@ button {
     background-color: var(--bg-input);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 13px;
-    line-height: 1.6; /* approx 21px */
+    font-size: 14px;
+    line-height: 22px; /* approx 21px */
     padding: 10px 16px;
     white-space: pre;
     overflow: auto;
@@ -451,10 +451,11 @@ button {
     padding: 16px;
     overflow: auto;
     font-family: var(--font-mono);
-    font-size: 14px;
+    font-size: 15px;
     color: var(--text-primary);
     white-space: pre-wrap;
     word-wrap: break-word;
+    line-height: 24px;
 }
 
 .json-key { color: #0a64b9; font-weight: normal; }
@@ -606,12 +607,12 @@ button {
     background: transparent;
     white-space: pre; /* Force no wrap */
     overflow: auto; /* Allow scroll */
-    line-height: 21px;
+    line-height: 22px;
     padding-left: 48px; /* Prevent overlap with line numbers */
 }
 
 .line-numbers div {
-    height: 21px; /* Match line-height */
+    height: 22px; /* Match line-height */
 }
 
 .code-editor {
@@ -621,8 +622,8 @@ button {
     background-color: var(--bg-input);
     color: var(--text-primary);
     font-family: var(--font-mono);
-    font-size: 13px;
-    line-height: 21px; 
+    font-size: 14px;
+    line-height: 22px; 
     padding: 10px 16px;
     white-space: pre; /* Changed from pre-wrap */
     overflow: auto;
@@ -803,7 +804,7 @@ select.select-field {
 
 .multi-pane {
     flex: 1;
-    min-width: 200px;
+    min-width: 0;
     background-color: var(--bg-surface);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);
@@ -813,55 +814,12 @@ select.select-field {
     margin-right: 12px;
 }
 
-.multi-pane:last-child {
-    margin-right: 0;
-}
-
-.multi-pane header {
-    padding: 8px 12px;
-    background-color: var(--bg-input);
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 12px;
-    color: var(--text-secondary);
-}
-
-.pane-actions { display: flex; gap: 8px; }
-
-.pane-action-btn, .pane-delete-btn {
-    color: var(--text-muted);
-    transition: color 0.2s;
-}
-.pane-title-input {
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    color: var(--text-secondary);
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 2px 6px;
-    width: 140px;
-    transition: all 0.2s;
-}
-
-.pane-title-input:hover {
-    background-color: var(--bg-hover);
-}
-
-.pane-title-input:focus {
-    border-color: var(--primary);
-    background-color: var(--bg-surface);
-    color: var(--text-primary);
-    box-shadow: 0 0 0 1px var(--primary-light);
-}
-
 .multi-pane-content {
     flex: 1;
     display: flex;
     position: relative;
+    overflow: hidden;
+    min-width: 0;
 }
 
 .pane-line-numbers {
@@ -870,8 +828,8 @@ select.select-field {
     border-right: 1px solid var(--border-color);
     color: var(--text-muted);
     font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 1.6;
+    font-size: 14px;
+    line-height: 22px;
     text-align: right;
     padding: 8px 4px;
 }
@@ -881,11 +839,13 @@ select.select-field {
     border: none;
     padding: 8px;
     font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 1.6;
+    font-size: 14px;
+    line-height: 22px;
     resize: none;
     background-color: var(--bg-surface);
     color: var(--text-primary);
+    white-space: pre;
+    overflow: auto;
 }
 
 .multi-split-resizer {

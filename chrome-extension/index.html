@@ -8,6 +8,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles-simple.css?v=2">
+    <link rel="stylesheet" href="styles-extra.css">
+    <link rel="stylesheet" href="styles-extra-pane.css">
+    <link rel="stylesheet" href="styles-actions.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔧</text></svg>">
 </head>
 <body>
@@ -29,6 +32,7 @@
                     <button class="nav-btn" data-tab="compare">对比</button>
                     <button class="nav-btn" data-tab="split">多窗格</button>
                     <button class="nav-btn" data-tab="converter">转换</button>
+                    <button class="nav-btn" data-tab="other-tools">其他</button>
                 </nav>
             </div>
 
@@ -204,6 +208,54 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Other Tools Tab -->
+            <div class="tab-content" id="other-tools-content">
+                <div class="tools-container">
+                    <aside class="tools-sidebar">
+                        <button class="tool-nav-item active" data-tool="timestamp">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"></path></svg>
+                            时间戳转换
+                        </button>
+                        <!-- Future tools placeholders -->
+                        <!-- <button class="tool-nav-item" data-tool="base64">Base64 编解码</button> -->
+                    </aside>
+                    <main class="tool-main-content">
+                        <!-- Timestamp Tool -->
+                        <div class="tool-view active" id="tool-timestamp">
+                            <div class="panel" style="padding: 20px; max-width: 800px; margin: 0 auto;">
+                                <h3 style="margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">时间戳转换</h3>
+                                
+                                <div class="config-row" style="align-items: flex-end; gap: 16px; margin-bottom: 20px;">
+                                    <div class="config-group" style="flex: 2;">
+                                        <label>时间戳 (毫秒/秒)</label>
+                                        <input type="text" id="timestampInput" class="input-field" placeholder="例如: 1678888888000">
+                                    </div>
+                                    <div class="config-group" style="flex: 0 0 auto; display: flex; gap: 8px;">
+                                         <button class="tool-btn primary" id="tsToDateBtn">时间戳 → 日期</button>
+                                         <button class="tool-btn primary" id="dateToTsBtn">日期 → 时间戳</button>
+                                    </div>
+                                    <div class="config-group" style="flex: 2;">
+                                        <label>日期时间 (YYYY-MM-DD HH:mm:ss)</label>
+                                        <input type="text" id="dateInput" class="input-field" placeholder="例如: 2023-03-15 12:00:00">
+                                    </div>
+                                </div>
+                                
+                                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                                    <button class="tool-btn" id="useCurrentTimeBtn">使用当前时间</button>
+                                    <button class="tool-btn" id="clearTimeBtn">清空</button>
+                                </div>
+
+                                <div style="margin-top: 20px; padding: 10px; background-color: var(--bg-secondary); border-radius: 4px; display: none;" id="timeResultPanel">
+                                    <p id="timeResultText" style="margin: 0; font-family: var(--font-mono);"></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Future Tool Views -->
+                    </main>
                 </div>
             </div>
 

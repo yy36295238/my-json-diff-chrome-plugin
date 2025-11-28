@@ -1,4 +1,5 @@
 import { Utils } from '../utils.js';
+import { JSONRenderer } from '../JSONRenderer.js';
 
 export class LayoutManager {
     constructor(app) {
@@ -27,13 +28,22 @@ export class LayoutManager {
         const multiSplitContainer = document.getElementById('multiSplitContainer');
         if (multiSplitContainer) {
             multiSplitContainer.addEventListener('click', (e) => {
-                const target = e.target;
-                if (target.classList.contains('pane-action-btn')) {
-                    const index = parseInt(target.dataset.index, 10);
-                    this.formatPane(index);
-                } else if (target.classList.contains('pane-delete-btn')) {
-                    const index = parseInt(target.dataset.index, 10);
-                    this.removeSplitPane(index);
+                const btn = e.target.closest('button');
+                const collapsible = e.target.closest('.json-collapsible');
+                
+                if (btn) {
+                    if (btn.classList.contains('pane-action-btn')) {
+                        const index = parseInt(btn.dataset.index, 10);
+                        this.formatPane(index);
+                    } else if (btn.classList.contains('pane-delete-btn')) {
+                        const index = parseInt(btn.dataset.index, 10);
+                        this.removeSplitPane(index);
+                    } else if (btn.classList.contains('pane-view-btn')) {
+                        const index = parseInt(btn.dataset.index, 10);
+                        this.togglePaneView(index, btn);
+                    }
+                } else if (collapsible) {
+                    JSONRenderer.toggleContent(collapsible);
                 }
             });
             multiSplitContainer.addEventListener('input', (e) => {
@@ -69,7 +79,7 @@ export class LayoutManager {
     }
 
     getTabName(name) {
-        const map = { formatter: '格式化', compare: '对比', converter: '转换', split: '分隔栏' };
+        const map = { formatter: '格式化', compare: '对比', converter: '转换', split: '分隔栏', 'other-tools': '其他工具' };
         return map[name] || name;
     }
 
@@ -226,12 +236,20 @@ export class LayoutManager {
                 <header>
                     <input type="text" class="pane-title-input" data-index="${i}" value="${Utils.escapeHtml(this.splitPaneTitles[i] || `面板 ${i + 1}`)}" spellcheck="false">
                     <div class="pane-actions">
-                        <button class="pane-action-btn" data-index="${i}">美</button>
-                        <button class="pane-delete-btn" data-index="${i}">×</button>
+                        <button class="pane-view-btn" data-index="${i}" title="切换视图/编辑">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9.04,123.97,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231,128C226.69,135.52,197.29,182.4,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"></path></svg>
+                        </button>
+                        <button class="pane-action-btn" data-index="${i}" title="格式化">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M216,136a8,8,0,0,1-8,8H168a8,8,0,0,1,0-16h40A8,8,0,0,1,216,136Zm-8,56H144a8,8,0,0,0,0,16h64a8,8,0,0,0,0-16Zm8-128H168a8,8,0,0,0,0,16h40a8,8,0,0,0,0-16ZM213.38,27.57a8.09,8.09,0,0,0-8.19.94L132,80.44,58.81,7.25a8,8,0,0,0-11.32,11.31L106.34,80,33.19,153.19A8,8,0,0,0,32,164.69a7.93,7.93,0,0,0,5.66,2.34,8,8,0,0,0,5.65-2.34L117.66,91.31,190.81,164.5A8,8,0,0,0,202.12,153.19l-58.81-58.82,73.19-51.94A8.1,8.1,0,0,0,213.38,27.57Z"></path></svg>
+                        </button>
+                        <button class="pane-delete-btn" data-index="${i}" title="删除">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"></path></svg>
+                        </button>
                     </div>
                 </header>
                 <div class="multi-pane-content">
                     <textarea class="multi-pane-textarea" data-index="${i}">${Utils.escapeHtml(this.splitPaneContents[i] || '')}</textarea>
+                    <div class="multi-pane-view" data-index="${i}" style="display: none;"></div>
                 </div>
             `;
             container.appendChild(pane);
@@ -302,6 +320,41 @@ export class LayoutManager {
         this.saveSplitLayout();
     }
 
+    togglePaneView(index, btn) {
+        const container = document.getElementById('multiSplitContainer');
+        const panes = container.querySelectorAll('.multi-pane');
+        if (!panes[index]) return;
+
+        const textarea = panes[index].querySelector('.multi-pane-textarea');
+        const view = panes[index].querySelector('.multi-pane-view');
+        
+        if (view.style.display === 'none') {
+            // Switch to View
+            const content = textarea.value.trim();
+            if (!content) {
+                view.innerHTML = '<span style="color: var(--text-muted); font-style: italic; padding: 10px;">无内容</span>';
+            } else {
+                try {
+                    const parsed = JSON.parse(content);
+                    view.innerHTML = JSONRenderer.renderJSONTree(parsed);
+                } catch (e) {
+                    this.showError('无法切换视图', 'JSON 格式无效: ' + e.message);
+                    return;
+                }
+            }
+            textarea.style.display = 'none';
+            view.style.display = 'block';
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152.05a16,16,0,0,0-4.69,11.31v44.69A16,16,0,0,0,48,224H92.69a16,16,0,0,0,11.31-4.69L227.31,96A16,16,0,0,0,227.31,73.37ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"></path></svg>'; // Edit icon
+            btn.title = "切换编辑模式";
+        } else {
+            // Switch to Edit
+            view.style.display = 'none';
+            textarea.style.display = 'block';
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9.04,123.97,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231,128C226.69,135.52,197.29,182.4,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"></path></svg>'; // Eye icon
+            btn.title = "切换视图模式";
+        }
+    }
+
     addSplitPane() {
         if (this.splitPaneWidths.length >= this.maxSplitPanes) return;
         const n = this.splitPaneWidths.length + 1;
@@ -332,11 +385,33 @@ export class LayoutManager {
 
     formatPane(index) {
         try {
-            const val = this.splitPaneContents[index];
+            const container = document.getElementById('multiSplitContainer');
+            if (!container) return;
+            
+            const panes = container.querySelectorAll('.multi-pane');
+            if (!panes[index]) return;
+
+            const textarea = panes[index].querySelector('.multi-pane-textarea');
+            const val = textarea.value; 
             if (!val.trim()) return;
-            const pretty = JSON.stringify(JSON.parse(val), null, 2);
+
+            const parsed = JSON.parse(val);
+            const pretty = JSON.stringify(parsed, null, 2);
+            
+            // Update Model
             this.splitPaneContents[index] = pretty;
-            this.renderMultiSplit();
+            
+            // Update View
+            textarea.value = pretty;
+            
+            // Also update view mode if active
+            const view = panes[index].querySelector('.multi-pane-view');
+            if (view.style.display !== 'none') {
+                view.innerHTML = JSONRenderer.renderJSONTree(parsed);
+            }
+
+            this.saveSplitLayout();
+            this.updateStatus(`面板 ${index + 1} 已格式化`);
         } catch(e) {
             this.showError('格式化失败', e.message);
         }

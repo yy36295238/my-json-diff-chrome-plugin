@@ -1,0 +1,6 @@
+.pane-actions { 
+    display: flex; 
+    gap: 8px; 
+    flex-shrink: 0;
+    white-space: nowrap;
+}
