@@ -31,5 +31,50 @@ export const Utils = {
             return str.slice(0, -1);
         }
         return str;
+    },
+
+    deepParseJSON(obj) {
+        if (obj === null || obj === undefined) return obj;
+        if (Array.isArray(obj)) return obj.map(item => this.deepParseJSON(item));
+        if (typeof obj === 'object') {
+            const result = {};
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    result[key] = this.deepParseJSON(obj[key]);
+                }
+            }
+            return result;
+        }
+        if (typeof obj === 'string') {
+            const trimmed = obj.trim();
+            if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+                (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+                try {
+                    const parsed = JSON.parse(obj);
+                    return this.deepParseJSON(parsed);
+                } catch (e) {
+                    return obj;
+                }
+            }
+        }
+        return obj;
+    },
+
+    sortDeep(obj) {
+        if (Array.isArray(obj)) {
+            // Deep sort items first
+            const sortedItems = obj.map(item => this.sortDeep(item));
+            // Then sort the array itself based on string representation
+            return sortedItems.sort((a, b) => {
+                return JSON.stringify(a).localeCompare(JSON.stringify(b));
+            });
+        } else if (typeof obj === 'object' && obj !== null) {
+            const sortedObj = {};
+            Object.keys(obj).sort().forEach(key => {
+                sortedObj[key] = this.sortDeep(obj[key]);
+            });
+            return sortedObj;
+        }
+        return obj;
     }
 };

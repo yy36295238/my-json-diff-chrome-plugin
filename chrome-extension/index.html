@@ -130,7 +130,12 @@
                         <div class="panel-toolbar">
                             <span class="panel-title">原始 JSON</span>
                             <div class="toolbar-right">
+                                <label class="checkbox-label" style="margin-right: 8px;">
+                                    <input type="checkbox" id="ignoreArrayOrder">
+                                    <span>忽略数组顺序</span>
+                                </label>
                                 <button class="tool-btn" id="loadDemoBtn" title="加载机型比价示例">示例</button>
+                                <button class="tool-btn" id="minifyLeft">压缩</button>
                                 <button class="tool-btn" id="beautifyLeft">美化</button>
                             </div>
                         </div>
@@ -151,7 +156,15 @@
                     <div class="panel compare-panel">
                         <div class="panel-toolbar">
                             <span class="panel-title">新 JSON</span>
-                            <button class="tool-btn" id="beautifyRight">美化</button>
+                            <div class="toolbar-right">
+                                <label class="checkbox-label" style="margin-right: 8px;">
+                                    <input type="checkbox" id="ignoreArrayOrderRight">
+                                    <span>忽略数组顺序</span>
+                                </label>
+                                <button class="tool-btn" id="loadDemoBtnRight" title="加载机型比价示例">示例</button>
+                                <button class="tool-btn" id="minifyRight">压缩</button>
+                                <button class="tool-btn" id="beautifyRight">美化</button>
+                            </div>
                         </div>
                         <div class="editor-wrapper">
                             <div class="line-numbers" id="rightJsonLines"></div>
