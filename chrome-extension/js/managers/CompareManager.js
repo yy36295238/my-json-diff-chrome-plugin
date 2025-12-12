@@ -426,8 +426,11 @@ export class CompareManager {
     }
 
     updateDiffHighlights(differences, leftFormatted, rightFormatted) {
+        console.log('[CompareManager] Updating diff highlights, differences count:', differences.length);
         const leftLines = this.getDiffLineData(leftFormatted, differences, 'left');
         const rightLines = this.getDiffLineData(rightFormatted, differences, 'right');
+        console.log('[CompareManager] Left diff lines:', leftLines.filter(l => l.type !== 'same').length);
+        console.log('[CompareManager] Right diff lines:', rightLines.filter(l => l.type !== 'same').length);
         this.updateCompareDisplay('leftJson', leftLines);
         this.updateCompareDisplay('rightJson', rightLines);
     }
@@ -438,6 +441,7 @@ export class CompareManager {
 
         // 构建路径到行号的映射
         const pathToLines = this.buildPathToLineMapping(formattedString);
+        console.log(`[getDiffLineData] ${side} - Path to lines mapping:`, pathToLines);
 
         // 初始化所有行为'same'
         for (let i = 0; i < lines.length; i++) {
@@ -447,12 +451,17 @@ export class CompareManager {
         // 根据差异标记对应的行
         for (const diff of differences) {
             const targetPath = side === 'left' ? diff.leftPath : diff.rightPath;
+            console.log(`[getDiffLineData] ${side} - Processing diff:`, diff.type, 'targetPath:', targetPath, 'path:', diff.path);
 
             // 如果该侧没有对应的路径（比如左侧删除，右侧为null），跳过
-            if (!targetPath) continue;
+            if (!targetPath && !diff.path) continue;
+
+            // 如果没有leftPath/rightPath，尝试使用path
+            const actualPath = targetPath || diff.path;
 
             // 获取该路径对应的行范围
-            const lineRanges = this.findLinesForPath(pathToLines, targetPath, diff.type);
+            const lineRanges = this.findLinesForPath(pathToLines, actualPath, diff.type);
+            console.log(`[getDiffLineData] ${side} - Line ranges for path '${actualPath}':`, lineRanges);
 
             lineRanges.forEach(lineIndex => {
                 if (lineIndex >= 0 && lineIndex < diffLines.length) {
@@ -477,88 +486,114 @@ export class CompareManager {
     buildPathToLineMapping(formattedString) {
         const lines = formattedString.split('\n');
         const mapping = {};
-        const stack = [{ path: '', lineStart: 0 }];
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
+        // 统一把根节点映射到所有行，便于处理 diff.path === 'root'
+        if (lines.length > 0) {
+            mapping.root = Array.from({ length: lines.length }, (_, i) => i);
+        }
 
-            // 跳过空行
-            if (!line) continue;
+        const addLine = (path, lineIndex) => {
+            if (!path) return;
+            if (!mapping[path]) mapping[path] = [];
+            mapping[path].push(lineIndex);
+        };
 
-            // 数组元素开始: "{"
-            if (line === '{') {
-                // 查找这是数组的第几个元素
-                const arrayIndex = this.findArrayIndexAtLine(lines, i);
-                if (arrayIndex !== null) {
-                    const currentPath = `[${arrayIndex}]`;
-                    if (!mapping[currentPath]) mapping[currentPath] = [];
-                    // 记录数组元素的起始行
-                    stack.push({ path: currentPath, lineStart: i, lineEnd: null });
-                }
+        const addRange = (path, start, end) => {
+            if (!path) return;
+            if (!mapping[path]) mapping[path] = [];
+            for (let i = start; i <= end; i++) {
+                mapping[path].push(i);
             }
+        };
 
-            // 数组元素结束: "}," 或 "}"
-            if (line === '},' || line === '}') {
-                if (stack.length > 1) {
-                    const item = stack.pop();
-                    item.lineEnd = i;
-                    // 将整个元素的行范围加入映射
-                    if (!mapping[item.path]) mapping[item.path] = [];
-                    for (let j = item.lineStart; j <= item.lineEnd; j++) {
-                        mapping[item.path].push(j);
+        const joinPath = (base, key) => (base ? `${base}.${key}` : key);
+
+        // frame: { type: 'object'|'array', path: string, startLine: number, nextIndex?: number, isArrayElement?: boolean, parentArray?: frame }
+        const stack = [];
+        const top = () => (stack.length ? stack[stack.length - 1] : null);
+
+        for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+            const trimmed = lines[lineIndex].trim();
+            if (!trimmed) continue;
+
+            // 先处理容器结束（该行属于当前容器的范围）
+            if (trimmed === '}' || trimmed === '},' || trimmed === ']' || trimmed === '],') {
+                const frame = top();
+                if (frame) {
+                    stack.pop();
+                    if (frame.path) addRange(frame.path, frame.startLine, lineIndex);
+
+                    // 如果这个 frame 是数组元素（对象/数组），关闭时推进父数组 index
+                    if (frame.isArrayElement && frame.parentArray) {
+                        frame.parentArray.nextIndex = (frame.parentArray.nextIndex ?? 0) + 1;
                     }
                 }
+                continue;
             }
 
-            // 记录具体字段的行号: "key": value
-            const keyMatch = line.match(/^"([^"]+)"\s*:/);
-            if (keyMatch && stack.length > 1) {
-                const key = keyMatch[1];
-                const currentElement = stack[stack.length - 1];
-                const fieldPath = `${currentElement.path}.${key}`;
-                if (!mapping[fieldPath]) mapping[fieldPath] = [];
-                mapping[fieldPath].push(i);
+            let frame = top();
+
+            // 根容器开始
+            if (!frame) {
+                if (trimmed === '{') {
+                    stack.push({ type: 'object', path: '', startLine: lineIndex });
+                } else if (trimmed === '[') {
+                    stack.push({ type: 'array', path: '', startLine: lineIndex, nextIndex: 0 });
+                }
+                continue;
+            }
+
+            // 数组内：处理元素（对象/数组/原始值）
+            if (frame.type === 'array') {
+                if (trimmed === '{' || trimmed === '[') {
+                    const idx = frame.nextIndex ?? 0;
+                    const elementPath = frame.path ? `${frame.path}[${idx}]` : `[${idx}]`;
+                    stack.push({
+                        type: trimmed === '{' ? 'object' : 'array',
+                        path: elementPath,
+                        startLine: lineIndex,
+                        isArrayElement: true,
+                        parentArray: frame,
+                        nextIndex: trimmed === '[' ? 0 : undefined
+                    });
+                    continue;
+                }
+
+                // 原始值元素（number/string/boolean/null）
+                const idx = frame.nextIndex ?? 0;
+                const elementPath = frame.path ? `${frame.path}[${idx}]` : `[${idx}]`;
+                addLine(elementPath, lineIndex);
+                frame.nextIndex = idx + 1;
+                continue;
+            }
+
+            // 对象内：处理 key 行
+            if (frame.type === 'object') {
+                const keyMatch = trimmed.match(/^"([^"]+)"\s*:\s*(.*)$/);
+                if (keyMatch) {
+                    const key = keyMatch[1];
+                    const rest = keyMatch[2];
+                    const keyPath = joinPath(frame.path, key);
+
+                    // key 所在行先记录
+                    addLine(keyPath, lineIndex);
+
+                    // value 是容器并且起始就在同一行："k": { 或 "k": [
+                    if (rest.startsWith('{') || rest.startsWith('[')) {
+                        const isObj = rest.startsWith('{');
+                        stack.push({
+                            type: isObj ? 'object' : 'array',
+                            path: keyPath,
+                            startLine: lineIndex,
+                            nextIndex: isObj ? undefined : 0
+                        });
+                    }
+                }
+                continue;
             }
         }
 
         return mapping;
-    }
-
-    /**
-     * 查找当前行所在的数组索引
-     */
-    findArrayIndexAtLine(lines, lineIndex) {
-        let arrayIndex = -1;
-        let braceDepth = 0;
-
-        for (let i = 0; i <= lineIndex; i++) {
-            const line = lines[i].trim();
-            if (line === '[') {
-                arrayIndex = 0;
-                continue;
-            }
-            if (line === '{') {
-                if (braceDepth === 0 && i > 0) {
-                    // 检查前一个非空行
-                    for (let j = i - 1; j >= 0; j--) {
-                        const prevLine = lines[j].trim();
-                        if (prevLine === '[' || prevLine === ',') {
-                            if (prevLine === ',') arrayIndex++;
-                            break;
-                        }
-                    }
-                }
-                braceDepth++;
-            }
-            if (line === '},' || line === '}') {
-                braceDepth--;
-                if (braceDepth === 0 && line === '},') {
-                    arrayIndex++;
-                }
-            }
-        }
-
-        return arrayIndex >= 0 ? arrayIndex : null;
     }
 
     /**
@@ -590,45 +625,63 @@ export class CompareManager {
 
     updateCompareDisplay(textareaId, diffLines) {
         const textarea = document.getElementById(textareaId);
-        const container = textarea.parentElement;
-        const existing = container.querySelector('.highlight-layer');
+        if (!textarea) return;
+
+        const wrapper = textarea.parentElement; // .editor-wrapper
+        if (!wrapper) return;
+
+        const existing = wrapper.querySelector('.highlight-layer');
         if (existing) existing.remove();
 
         const highlightLayer = document.createElement('div');
         highlightLayer.className = 'highlight-layer';
-        
+
+        // Align highlight layer to the textarea content box (exclude line-number gutter)
+        const gutter = wrapper.querySelector('.line-numbers');
+        const gutterWidth = gutter ? gutter.offsetWidth : 0;
+
+        const style = getComputedStyle(textarea);
+        const lineHeight = Number.parseFloat(style.lineHeight) || 22;
+        const paddingTop = Number.parseFloat(style.paddingTop) || 0;
+        const paddingRight = Number.parseFloat(style.paddingRight) || 0;
+        const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
+        const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
+
+        highlightLayer.style.left = `${gutterWidth}px`;
+        highlightLayer.style.width = `calc(100% - ${gutterWidth}px)`;
+        highlightLayer.style.padding = `${paddingTop}px ${paddingRight}px ${paddingBottom}px ${paddingLeft}px`;
+
         const contentContainer = document.createElement('div');
         contentContainer.className = 'highlight-content';
-        contentContainer.style.position = 'absolute';
-        contentContainer.style.top = '0';
-        contentContainer.style.left = '0';
+        contentContainer.style.position = 'relative';
         contentContainer.style.width = '100%';
+        contentContainer.style.height = '100%';
         contentContainer.style.willChange = 'transform';
-        
-        let html = '';
-        const lineHeight = 22; 
-        const paddingTop = 10; 
 
+        let html = '';
         diffLines.forEach((diffLine, index) => {
             if (diffLine.type !== 'same') {
                 const className = `highlight-${diffLine.type}`;
-                const top = paddingTop + (index * lineHeight);
-                html += `<div class="highlight-line ${className}" style="top: ${top}px;"></div>`;
+                const top = index * lineHeight;
+                html += `<div class="highlight-line ${className}" style="top: ${top}px; height: ${lineHeight}px;"></div>`;
             }
         });
 
         contentContainer.innerHTML = html;
         highlightLayer.appendChild(contentContainer);
 
-        if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
-        container.appendChild(highlightLayer);
-        
-        // Initial sync
-        contentContainer.style.transform = `translateY(-${textarea.scrollTop}px)`;
+        if (getComputedStyle(wrapper).position === 'static') wrapper.style.position = 'relative';
+        wrapper.appendChild(highlightLayer);
 
-        const scrollHandler = () => {
+        // Initial sync
+        const sync = () => {
+            // Only vertical sync needed (highlight spans full width)
             contentContainer.style.transform = `translateY(-${textarea.scrollTop}px)`;
         };
+
+        sync();
+
+        const scrollHandler = () => sync();
         if (textarea._scrollHandler) textarea.removeEventListener('scroll', textarea._scrollHandler);
         textarea._scrollHandler = scrollHandler;
         textarea.addEventListener('scroll', scrollHandler);
