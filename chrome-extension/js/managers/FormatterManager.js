@@ -45,6 +45,16 @@ export class FormatterManager {
                 if (path) {
                     this.onKeyClick(path);
                 }
+            } else {
+                // Check if copy icon or its SVG child was clicked
+                const copyBtn = e.target.closest('.copy-json-value');
+                if (copyBtn) {
+                    const path = copyBtn.getAttribute('data-path');
+                    if (path) {
+                        this.copyValueByPath(path);
+                        e.stopPropagation();
+                    }
+                }
             }
         });
     }
@@ -251,6 +261,29 @@ export class FormatterManager {
             input.value = path;
             input.select();
             this.app.layout.updateStatus(`JSONPath: ${path}`);
+        }
+    }
+
+    copyValueByPath(path) {
+        try {
+            const editor = document.getElementById('jsonEditor');
+            const json = JSON.parse(editor.value);
+            const value = Utils.getValueByPath(json, path);
+            
+            if (value !== undefined) {
+                const textToCopy = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    this.app.layout.updateStatus(`已复制 ${path} 的值到剪贴板`);
+                }).catch(err => {
+                     console.error('Clipboard write failed', err);
+                     this.app.layout.showError('复制失败', '无法写入剪贴板');
+                });
+            } else {
+                this.app.layout.updateStatus('无法获取该路径的值');
+            }
+        } catch (e) {
+            console.error('Copy failed', e);
+            this.app.layout.showError('复制失败', e.message);
         }
     }
 

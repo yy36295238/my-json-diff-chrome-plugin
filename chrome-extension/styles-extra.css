@@ -80,3 +80,8 @@
         white-space: nowrap;
     }
 }
+/* Added for copy value icon */
+.json-key-wrapper:hover .copy-json-value {
+    opacity: 1 !important;
+}
+

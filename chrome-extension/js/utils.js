@@ -60,6 +60,40 @@ export const Utils = {
         return obj;
     },
 
+    getValueByPath(obj, path) {
+        if (!obj || !path) return undefined;
+        if (path === '$') return obj;
+
+        // Strip leading $ if present
+        if (path.startsWith('$')) {
+            path = path.slice(1);
+        }
+
+        // Regex to match segments: .key OR ['key'] OR [index]
+        const segments = [];
+        const regex = /\.([a-zA-Z_$][a-zA-Z0-9_$]*)|\[(?:'([^']*)'|"([^"]*)")\]|\[(\d+)\]/g;
+        
+        let match;
+        while ((match = regex.exec(path)) !== null) {
+            if (match[1]) {
+                segments.push(match[1]); // .key
+            } else if (match[2]) {
+                segments.push(match[2]); // ['key']
+            } else if (match[3]) {
+                segments.push(match[3]); // ["key"]
+            } else if (match[4]) {
+                segments.push(parseInt(match[4], 10)); // [index]
+            }
+        }
+
+        let current = obj;
+        for (const segment of segments) {
+            if (current === null || current === undefined) return undefined;
+            current = current[segment];
+        }
+        return current;
+    },
+
     sortDeep(obj) {
         if (Array.isArray(obj)) {
             // Deep sort items first
