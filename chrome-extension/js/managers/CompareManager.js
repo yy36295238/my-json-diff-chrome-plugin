@@ -60,11 +60,15 @@ export class CompareManager {
         leftArea.addEventListener('input', () => {
             this.recordHistory('left', leftArea.value);
             this.updateLineNumbers('left', leftArea, leftLines);
+            // 清除对比高亮显示，因为数据已改变
+            this.clearComparison();
         });
 
         rightArea.addEventListener('input', () => {
             this.recordHistory('right', rightArea.value);
             this.updateLineNumbers('right', rightArea, rightLines);
+            // 清除对比高亮显示，因为数据已改变
+            this.clearComparison();
         });
 
         leftArea.addEventListener('scroll', () => { if (leftLines) leftLines.scrollTop = leftArea.scrollTop; });
@@ -96,6 +100,8 @@ export class CompareManager {
             const pretty = JSON.stringify(parsed, null, 2);
             area.value = pretty;
             this.updateLineNumbers(side, area, document.getElementById(`${id}Lines`));
+            // 清除对比高亮显示，因为数据已改变
+            this.clearComparison();
             this.app.layout.updateStatus(`${side === 'left' ? '左侧' : '右侧'}已美化`);
         } catch (e) {
             this.app.layout.showError('美化失败', e.message);
@@ -113,6 +119,8 @@ export class CompareManager {
             const minified = JSON.stringify(parsed);
             area.value = minified;
             this.updateLineNumbers(side, area, document.getElementById(`${id}Lines`));
+            // 清除对比高亮显示，因为数据已改变
+            this.clearComparison();
             this.app.layout.updateStatus(`${side === 'left' ? '左侧' : '右侧'}已压缩`);
         } catch (e) {
             this.app.layout.showError('压缩失败', e.message);

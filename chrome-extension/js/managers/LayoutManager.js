@@ -25,6 +25,9 @@ export class LayoutManager {
         const addSplitBtn = document.getElementById('addSplitPane');
         if (addSplitBtn) addSplitBtn.addEventListener('click', () => this.addSplitPane());
 
+        const clearAllSplitBtn = document.getElementById('clearAllSplitPanes');
+        if (clearAllSplitBtn) clearAllSplitBtn.addEventListener('click', () => this.clearAllSplitPanes());
+
         const multiSplitContainer = document.getElementById('multiSplitContainer');
         if (multiSplitContainer) {
             multiSplitContainer.addEventListener('click', (e) => {
@@ -418,11 +421,33 @@ export class LayoutManager {
     }
 
     saveSplitLayout() {
-        const data = { 
-            splitPaneWidths: this.splitPaneWidths, 
+        const data = {
+            splitPaneWidths: this.splitPaneWidths,
             splitPaneContents: this.splitPaneContents,
             splitPaneTitles: this.splitPaneTitles
         };
         localStorage.setItem('json-tool-data', JSON.stringify(data));
+    }
+
+    /**
+     * 清空所有分隔栏的数据内容
+     */
+    clearAllSplitPanes() {
+        // 确认操作
+        if (!confirm('确定要清空所有分隔栏的数据吗？此操作不可撤销。')) {
+            return;
+        }
+
+        // 清空所有内容
+        this.splitPaneContents = this.splitPaneContents.map(() => '');
+
+        // 重新渲染
+        this.renderMultiSplit();
+
+        // 保存到本地存储
+        this.saveSplitLayout();
+
+        // 更新状态
+        this.updateStatus('已清空所有分隔栏数据');
     }
 }

@@ -11,6 +11,7 @@ export class FormatterManager {
         document.getElementById('formatBtn').addEventListener('click', () => this.formatJSON());
         document.getElementById('compressBtn').addEventListener('click', () => this.compressJSON());
         document.getElementById('removeEscapeBtn').addEventListener('click', () => this.removeEscapeCharacters());
+        document.getElementById('repairBtn').addEventListener('click', () => this.repairJSON());
         const loadExampleBtn = document.getElementById('loadExampleBtn');
         if (loadExampleBtn) loadExampleBtn.addEventListener('click', () => this.loadExample());
 
@@ -348,5 +349,208 @@ export class FormatterManager {
             gutter.innerHTML = html;
             gutter.scrollTop = editor.scrollTop;
         } catch (e) {}
+    }
+
+    /**
+     * JSON自动修复功能
+     * 修复常见的JSON格式问题,如缺失的引号、括号、逗号等
+     */
+    repairJSON() {
+        const editor = document.getElementById('jsonEditor');
+        const input = editor.value.trim();
+
+        if (!input) {
+            this.app.layout.showError('修复失败', '输入内容为空');
+            return;
+        }
+
+        try {
+            const repaired = this.attemptJSONRepair(input);
+            editor.value = repaired;
+            this.updatePreview(repaired);
+            this.app.addToHistory(repaired);
+            this.updateEditorInfo();
+            this.app.layout.updateStatus('JSON修复完成');
+        } catch (error) {
+            this.app.layout.showError('JSON修复失败', error.message);
+        }
+    }
+
+    attemptJSONRepair(input) {
+        let text = input;
+
+        // 1. 尝试先解析,如果成功则格式化返回
+        try {
+            const parsed = JSON.parse(text);
+            return JSON.stringify(parsed, null, 2);
+        } catch (e) {
+            // 继续修复
+        }
+
+        // 2. 移除BOM和多余空白字符
+        text = text.replace(/^\uFEFF/, '').trim();
+
+        // 3. 修复常见的键名缺少引号的问题
+        // 匹配类似 {name: "value"} 的模式,转换为 {"name": "value"}
+        text = text.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+
+        // 4. 修复单引号为双引号
+        // 需要小心处理字符串内的单引号
+        text = this.replaceSingleQuotesWithDouble(text);
+
+        // 5. 修复尾随逗号问题 (JSON不允许尾随逗号)
+        text = text.replace(/,(\s*[}\]])/g, '$1');
+
+        // 6. 修复缺少逗号的问题
+        // 对象属性之间缺少逗号
+        text = text.replace(/("\s*)([\n\r]+\s*)(")/g, '",$2"');
+        // 数组元素之间缺少逗号
+        text = text.replace(/([\}\]])\s*([\n\r]+)\s*([\{\[])/g, '$1,$2$3');
+
+        // 7. 尝试修复括号不匹配的问题
+        text = this.balanceBrackets(text);
+
+        // 8. 修复未闭合的字符串
+        text = this.fixUnclosedStrings(text);
+
+        // 9. 再次尝试解析
+        try {
+            const parsed = JSON.parse(text);
+            return JSON.stringify(parsed, null, 2);
+        } catch (e) {
+            // 如果还是失败,返回修复后的文本并抛出错误
+            throw new Error(`无法完全修复JSON: ${e.message}`);
+        }
+    }
+
+    /**
+     * 将单引号替换为双引号(仅在字符串边界)
+     */
+    replaceSingleQuotesWithDouble(text) {
+        let result = '';
+        let inDoubleQuote = false;
+        let inSingleQuote = false;
+        let prevChar = '';
+
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            const nextChar = text[i + 1] || '';
+
+            if (char === '"' && prevChar !== '\\') {
+                inDoubleQuote = !inDoubleQuote;
+                result += char;
+            } else if (char === "'" && prevChar !== '\\' && !inDoubleQuote) {
+                if (!inSingleQuote) {
+                    // 开始单引号字符串
+                    inSingleQuote = true;
+                    result += '"';
+                } else {
+                    // 结束单引号字符串
+                    inSingleQuote = false;
+                    result += '"';
+                }
+            } else {
+                result += char;
+            }
+
+            prevChar = char;
+        }
+
+        return result;
+    }
+
+    /**
+     * 平衡括号(大括号和中括号)
+     */
+    balanceBrackets(text) {
+        const openBrackets = { '{': 0, '[': 0 };
+        const closeBrackets = { '}': 0, ']': 0 };
+        let inString = false;
+        let prevChar = '';
+
+        // 统计括号数量
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+
+            if (char === '"' && prevChar !== '\\') {
+                inString = !inString;
+            }
+
+            if (!inString) {
+                if (char === '{') openBrackets['{']++;
+                if (char === '[') openBrackets['[']++;
+                if (char === '}') closeBrackets['}']++;
+                if (char === ']') closeBrackets[']']++;
+            }
+
+            prevChar = char;
+        }
+
+        // 补充缺失的闭合括号
+        let suffix = '';
+        const missingCurly = openBrackets['{'] - closeBrackets['}'];
+        const missingSquare = openBrackets['['] - closeBrackets[']'];
+
+        if (missingCurly > 0) {
+            suffix += '}'.repeat(missingCurly);
+        }
+        if (missingSquare > 0) {
+            suffix += ']'.repeat(missingSquare);
+        }
+
+        // 移除多余的开括号(从开头移除)
+        let result = text;
+        if (missingCurly < 0) {
+            // 有多余的闭合大括号,尝试移除开头的开括号
+            const toRemove = Math.abs(missingCurly);
+            let removed = 0;
+            result = '';
+            for (let i = 0; i < text.length && removed < toRemove; i++) {
+                if (text[i] === '{') {
+                    removed++;
+                    continue;
+                }
+                result += text[i];
+            }
+            if (removed < toRemove) {
+                result = text; // 还原
+            }
+        }
+
+        return result + suffix;
+    }
+
+    /**
+     * 修复未闭合的字符串
+     */
+    fixUnclosedStrings(text) {
+        let result = '';
+        let inString = false;
+        let stringStart = -1;
+        let prevChar = '';
+
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+
+            if (char === '"' && prevChar !== '\\') {
+                if (!inString) {
+                    inString = true;
+                    stringStart = i;
+                } else {
+                    inString = false;
+                    stringStart = -1;
+                }
+            }
+
+            result += char;
+            prevChar = char;
+        }
+
+        // 如果字符串未闭合,在末尾添加引号
+        if (inString && stringStart !== -1) {
+            result += '"';
+        }
+
+        return result;
     }
 }
