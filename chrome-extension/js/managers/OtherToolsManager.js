@@ -1,146 +1,141 @@
+import { TimestampTool } from './tools/TimestampTool.js';
+import { HexDecodeTool } from './tools/HexDecodeTool.js';
+
+/**
+ * 其他工具管理器
+ * 负责协调和管理所有子工具
+ */
 export class OtherToolsManager {
     constructor(app) {
         this.app = app;
+        this.tools = new Map(); // 存储所有工具实例
+        this.currentTool = null; // 当前激活的工具
     }
 
+    /**
+     * 初始化管理器
+     */
     init() {
-        this.bindEvents();
+        this.registerTools();
+        this.bindNavigationEvents();
+        this.initializeTools();
     }
 
-    bindEvents() {
-        // Navigation Logic
+    /**
+     * 注册所有工具
+     */
+    registerTools() {
+        // 注册时间戳转换工具
+        this.registerTool('timestamp', new TimestampTool(this.app));
+
+        // 注册16进制解码工具
+        this.registerTool('hexdecode', new HexDecodeTool(this.app));
+
+        // 未来可以在这里添加更多工具
+        // this.registerTool('base64', new Base64Tool(this.app));
+        // this.registerTool('url-encode', new UrlEncodeTool(this.app));
+    }
+
+    /**
+     * 注册单个工具
+     */
+    registerTool(toolId, toolInstance) {
+        this.tools.set(toolId, toolInstance);
+    }
+
+    /**
+     * 初始化所有工具
+     */
+    initializeTools() {
+        for (const [toolId, tool] of this.tools) {
+            try {
+                tool.init();
+                console.log(`工具 ${toolId} 初始化成功`);
+            } catch (error) {
+                console.error(`工具 ${toolId} 初始化失败:`, error);
+            }
+        }
+
+        // 默认激活第一个工具
+        this.currentTool = 'timestamp';
+    }
+
+    /**
+     * 绑定导航事件
+     */
+    bindNavigationEvents() {
         document.querySelectorAll('.tool-nav-item').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const toolId = e.currentTarget.dataset.tool;
                 this.switchTool(toolId);
             });
         });
-
-        // Timestamp Tool Events
-        const tsInput = document.getElementById('timestampInput');
-        const dateInput = document.getElementById('dateInput');
-        const tsToDateBtn = document.getElementById('tsToDateBtn');
-        const dateToTsBtn = document.getElementById('dateToTsBtn');
-        const useCurrentTimeBtn = document.getElementById('useCurrentTimeBtn');
-        const clearTimeBtn = document.getElementById('clearTimeBtn');
-
-        if (tsToDateBtn) {
-            tsToDateBtn.addEventListener('click', () => this.convertTsToDate());
-        }
-
-        if (dateToTsBtn) {
-            dateToTsBtn.addEventListener('click', () => this.convertDateToTs());
-        }
-
-        if (useCurrentTimeBtn) {
-            useCurrentTimeBtn.addEventListener('click', () => {
-                const now = new Date();
-                if (tsInput) tsInput.value = now.getTime();
-                if (dateInput) dateInput.value = this.formatDate(now);
-                this.showResult(`当前时间: ${this.formatDate(now)} / ${now.getTime()}`);
-            });
-        }
-
-        if (clearTimeBtn) {
-            clearTimeBtn.addEventListener('click', () => {
-                if (tsInput) tsInput.value = '';
-                if (dateInput) dateInput.value = '';
-                this.hideResult();
-            });
-        }
     }
 
+    /**
+     * 切换工具
+     */
     switchTool(toolId) {
-        // Update Nav
+        // 验证工具是否存在
+        if (!this.tools.has(toolId)) {
+            console.warn(`工具 ${toolId} 不存在`);
+            return;
+        }
+
+        // 更新导航状态
         document.querySelectorAll('.tool-nav-item').forEach(btn => btn.classList.remove('active'));
         const activeBtn = document.querySelector(`.tool-nav-item[data-tool="${toolId}"]`);
         if (activeBtn) activeBtn.classList.add('active');
 
-        // Update View
+        // 更新视图状态
         document.querySelectorAll('.tool-view').forEach(view => view.classList.remove('active'));
         const activeView = document.getElementById(`tool-${toolId}`);
         if (activeView) activeView.classList.add('active');
+
+        // 更新当前工具
+        this.currentTool = toolId;
+
+        // 可以在这里添加工具切换的钩子
+        this.onToolSwitch(toolId);
     }
 
-    convertTsToDate() {
-        const tsInput = document.getElementById('timestampInput');
-        const dateInput = document.getElementById('dateInput');
-        
-        if (!tsInput || !tsInput.value.trim()) {
-            this.app.layout.showError('请输入时间戳');
-            return;
-        }
-
-        let ts = tsInput.value.trim();
-        // Auto detect seconds vs milliseconds
-        if (ts.length === 10) {
-            ts = parseInt(ts) * 1000;
-        } else {
-            ts = parseInt(ts);
-        }
-
-        if (isNaN(ts)) {
-            this.app.layout.showError('无效的时间戳格式');
-            return;
-        }
-
-        const date = new Date(ts);
-        if (date.toString() === 'Invalid Date') {
-            this.app.layout.showError('无效的时间戳');
-            return;
-        }
-
-        const formatted = this.formatDate(date);
-        if (dateInput) dateInput.value = formatted;
-        this.showResult(`转换结果: ${formatted}`);
+    /**
+     * 工具切换钩子
+     */
+    onToolSwitch(toolId) {
+        // 工具切换时的额外逻辑
+        // 例如：清理前一个工具的状态、加载新工具的默认数据等
+        console.log(`切换到工具: ${toolId}`);
     }
 
-    convertDateToTs() {
-        const dateInput = document.getElementById('dateInput');
-        const tsInput = document.getElementById('timestampInput');
-
-        if (!dateInput || !dateInput.value.trim()) {
-            this.app.layout.showError('请输入日期时间');
-            return;
-        }
-
-        const dateStr = dateInput.value.trim();
-        const date = new Date(dateStr);
-
-        if (date.toString() === 'Invalid Date') {
-            this.app.layout.showError('无效的日期格式 (推荐: YYYY-MM-DD HH:mm:ss)');
-            return;
-        }
-
-        const ts = date.getTime();
-        if (tsInput) tsInput.value = ts;
-        this.showResult(`转换结果: ${ts}`);
+    /**
+     * 获取当前工具实例
+     */
+    getCurrentTool() {
+        return this.tools.get(this.currentTool);
     }
 
-    formatDate(date) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const seconds = String(date.getSeconds()).padStart(2, '0');
-        
-        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    /**
+     * 获取指定工具实例
+     */
+    getTool(toolId) {
+        return this.tools.get(toolId);
     }
 
-    showResult(text) {
-        const panel = document.getElementById('timeResultPanel');
-        const p = document.getElementById('timeResultText');
-        if (panel && p) {
-            p.textContent = text;
-            panel.style.display = 'block';
+    /**
+     * 销毁所有工具
+     */
+    destroy() {
+        for (const [toolId, tool] of this.tools) {
+            if (typeof tool.destroy === 'function') {
+                try {
+                    tool.destroy();
+                    console.log(`工具 ${toolId} 销毁成功`);
+                } catch (error) {
+                    console.error(`工具 ${toolId} 销毁失败:`, error);
+                }
+            }
         }
-    }
-
-    hideResult() {
-        const panel = document.getElementById('timeResultPanel');
-        if (panel) {
-            panel.style.display = 'none';
-        }
+        this.tools.clear();
     }
 }

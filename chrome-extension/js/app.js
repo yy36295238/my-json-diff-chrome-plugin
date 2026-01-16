@@ -3,6 +3,7 @@ import { CompareManager } from './managers/CompareManager.js';
 import { ConverterManager } from './managers/ConverterManager.js';
 import { OtherToolsManager } from './managers/OtherToolsManager.js';
 import { LayoutManager } from './managers/LayoutManager.js';
+import { NotesManager } from './managers/NotesManager.js';
 
 class JSONToolApp {
     constructor() {
@@ -16,6 +17,7 @@ class JSONToolApp {
         this.compare = new CompareManager(this);
         this.converter = new ConverterManager(this);
         this.otherTools = new OtherToolsManager(this);
+        this.notes = new NotesManager(this);
     }
 
     init() {
@@ -27,6 +29,7 @@ class JSONToolApp {
         this.compare.init();
         this.converter.init();
         this.otherTools.init();
+        this.notes.init();
 
         this.setupTheme();
         this.loadFromLocalStorage();

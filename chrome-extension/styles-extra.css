@@ -85,3 +85,357 @@
     opacity: 1 !important;
 }
 
+/* =========================================
+   New Styles for Hex Tool Layout
+   ========================================= */
+
+.hex-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 12px;
+}
+
+.hex-middle-actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+    padding: 4px 0;
+    flex-shrink: 0;
+}
+
+/* Custom separator for the hex middle bar */
+.hex-separator {
+    height: 1px;
+    background-color: var(--border-color);
+    flex: 1;
+    max-width: 100px;
+}
+
+/* Make textarea in hex tool same style as main editor */
+.hex-editor {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 22px;
+    resize: none;
+    border: none;
+    padding: 10px 16px;
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+    white-space: pre-wrap; /* Hex often wraps */
+}
+
+.hex-editor:focus {
+    outline: none;
+}
+
+/* =========================================
+   Notes Tab Styles
+   ========================================= */
+
+.notes-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-body);
+}
+
+.notes-toolbar {
+    padding: 12px 16px;
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.search-wrapper {
+    position: relative;
+    width: 240px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 12px 8px 34px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.search-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
+    background-color: var(--bg-surface);
+}
+
+/* Notes Canvas */
+.notes-canvas {
+    flex: 1;
+    position: relative;
+    overflow: auto;
+    background-color: var(--bg-tertiary); /* Distinct background for canvas */
+    background-image: radial-gradient(var(--border-color) 1px, transparent 1px);
+    background-size: 20px 20px; /* Dot pattern */
+    width: 100%;
+    height: 100%;
+}
+
+/* Note Card */
+.note-card {
+    position: absolute;
+    /* Width/Height set by inline style, defaults defined here if needed */
+    min-width: 200px;
+    min-height: 150px;
+    background-color: var(--bg-surface);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
+    display: flex;
+    flex-direction: column;
+    transition: box-shadow 0.2s, transform 0.1s, border-color 0.2s;
+    animation: fadeIn 0.3s ease;
+    z-index: 10;
+}
+
+.note-card:hover {
+    box-shadow: var(--shadow-lg);
+    border-color: var(--border-focus);
+    z-index: 100; /* Bring to front on hover */
+}
+
+.note-card.dragging {
+    box-shadow: var(--shadow-lg);
+    opacity: 0.9;
+    cursor: grabbing;
+    z-index: 1000 !important; /* Always on top while dragging */
+}
+
+.note-card.resizing {
+    box-shadow: var(--shadow-lg);
+    z-index: 1000 !important;
+    transition: none; /* Disable transition during resize for smoothness */
+}
+
+/* Add a transition class for auto-arrange animation */
+.note-card.animating {
+    transition: left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease, box-shadow 0.2s, transform 0.1s;
+}
+
+.note-header {
+    height: 40px; /* Slightly taller for handle + input */
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+    background-color: var(--bg-tertiary);
+    border-top-left-radius: var(--radius-md);
+    border-top-right-radius: var(--radius-md);
+    cursor: default;
+    flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+/* Drag Handle */
+.drag-handle {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: grab;
+    border-radius: 4px;
+}
+
+.drag-handle:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+}
+
+/* Resize Handle */
+.resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 16px;
+    height: 16px;
+    cursor: nwse-resize;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    padding: 2px;
+    z-index: 20;
+    /* Optional: visual indicator like dots or corner triangle */
+}
+
+.resize-handle::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    display: block;
+    margin-right: 3px;
+    margin-bottom: 3px;
+    opacity: 0.5;
+}
+
+.note-card:hover .resize-handle::after {
+    opacity: 1;
+    border-color: var(--primary);
+}
+
+/* Title Input */
+.note-title-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    padding: 4px;
+    border-radius: 4px;
+    outline: none;
+    min-width: 50px; /* Ensure title input doesn't shrink to zero */
+}
+
+.note-title-input:hover {
+    background-color: var(--bg-surface);
+}
+
+.note-title-input:focus {
+    background-color: var(--bg-surface);
+    box-shadow: 0 0 0 1px var(--primary-light);
+}
+
+.note-time {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.note-actions {
+    display: flex;
+    gap: 4px; /* Slightly more gap */
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    flex-shrink: 0; /* Prevent actions container from shrinking */
+    white-space: nowrap; /* Prevent wrapping */
+}
+
+.note-card:hover .note-actions {
+    opacity: 1;
+}
+
+.icon-btn-sm {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.icon-btn-sm:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.delete-btn:hover {
+    color: var(--danger);
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.note-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden; /* Prevent textarea from overflowing */
+}
+
+.note-editor {
+    flex: 1;
+    border: none;
+    resize: none;
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.6;
+    background-color: transparent;
+    color: var(--text-primary);
+    width: 100%;
+    white-space: pre;
+    overflow: auto;
+}
+
+.note-editor:focus {
+    outline: none;
+    background-color: var(--bg-input);
+}
+
+.note-footer {
+    height: 24px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--border-color); /* Optional: subtle separator */
+    background-color: var(--bg-surface);
+    border-bottom-left-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
+    flex-shrink: 0;
+}
+
+.note-stats {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60%;
+}
+
+/* Empty State */
+.empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 0;
+    color: var(--text-muted);
+}
+
+.empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-text {
+    font-size: 14px;
+}
