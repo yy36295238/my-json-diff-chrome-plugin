@@ -52,6 +52,11 @@ export class ConverterManager {
             sqlOpts.style.display = 'none';
             inputTitle.textContent = '输入 (SQL Insert)';
             outputTitle.textContent = '输出 (JSON)';
+        } else if (mode === 'java2json' || mode === 'map2json') {
+            javaOpts.style.display = 'none';
+            sqlOpts.style.display = 'none';
+            inputTitle.textContent = mode === 'java2json' ? '输入 (Java toString)' : '输入 (Map toString)';
+            outputTitle.textContent = '输出 (JSON)';
         }
     }
 
@@ -77,6 +82,8 @@ export class ConverterManager {
                 result = this.jsonToSql(json, tableName);
             } else if (mode === 'sql2json') {
                 result = this.sqlToJson(input);
+            } else if (mode === 'java2json' || mode === 'map2json') {
+                result = this.javaToStringToJson(input);
             }
             outputArea.value = result;
             this.app.layout.updateStatus('转换成功');
@@ -95,16 +102,23 @@ export class ConverterManager {
             this.generateRecursive(rootClassName, json, classes);
         }
 
-        return `import lombok.Data;\nimport java.util.List;\n\n` + classes.reverse().join('\n');
+        return `import lombok.Data;
+import java.util.List;
+
+` + classes.reverse().join('\n');
     }
 
     generateRecursive(name, obj, classList) {
         const className = Utils.capitalize(name);
-        let content = `@Data\npublic class ${className} {\n`;
+        let content = `@Data
+public class ${className} {
+`;
         
         // Check if obj is valid object
         if (!obj || typeof obj !== 'object') {
-             classList.push(`@Data\npublic class ${className} {}\n`);
+             classList.push(`@Data
+public class ${className} {}
+`);
              return;
         }
 
@@ -136,9 +150,11 @@ export class ConverterManager {
             } else {
                 type = this.getJavaType(key, val, []);
             }
-            content += `    private ${type} ${key};\n`;
+            content += `    private ${type} ${key};
+`;
         }
-        content += `}\n`;
+        content += `}
+`;
         classList.push(content);
     }
 
@@ -275,6 +291,148 @@ export class ConverterManager {
         });
 
         return JSON.stringify(result, null, 2);
+    }
+
+    javaToStringToJson(input) {
+        try {
+            const parsed = this.parseJavaStructure(input.trim());
+            return JSON.stringify(parsed, null, 2);
+        } catch (e) {
+            throw new Error('解析 Java toString 失败: ' + e.message);
+        }
+    }
+
+    parseJavaStructure(str) {
+        if (!str) return null;
+        str = str.trim();
+
+        if (str === 'null') return null;
+        if (str === 'true') return true;
+        if (str === 'false') return false;
+        // Check if number
+        if (!isNaN(str) && !isNaN(parseFloat(str))) {
+             // Handle cases like "123" but avoid dates/phones being parsed wrongly if they look like numbers?
+             // toString usually outputs raw numbers.
+             return Number(str);
+        }
+
+        // Handle Quoted strings (common in IntelliJ toString)
+        if (str.startsWith("'" ) && str.endsWith("'")) {
+             return str.slice(1, -1);
+        }
+        
+        // Handle Map/Object: Start with "{" or "ClassName{" or "ClassName("
+        if (str.endsWith('}') || str.endsWith(')')) {
+            const openBrace = str.indexOf('{');
+            const openParen = str.indexOf('(');
+            let start = -1;
+            let endChar = '';
+
+            if (openBrace !== -1 && (openParen === -1 || openBrace < openParen)) {
+                start = openBrace;
+                endChar = '}';
+            } else if (openParen !== -1) {
+                start = openParen;
+                endChar = ')';
+            }
+
+            if (start !== -1 && str.endsWith(endChar)) {
+                // Check if it's a collection disguised as object? No, standard Maps use {}.
+                // Recursively parse as Map
+                return this.parseJavaMap(str.substring(start + 1, str.length - 1));
+            }
+        }
+
+        // Handle List: Start with "[" and end with "]"
+        if (str.startsWith('[') && str.endsWith(']')) {
+            return this.parseJavaList(str.substring(1, str.length - 1));
+        }
+
+        // Fallback: String (unquoted)
+        return str;
+    }
+
+    parseJavaMap(content) {
+        content = content.trim();
+        if (!content) return {};
+
+        const result = {};
+        let depth = 0;
+        let buffer = '';
+        let key = null;
+        let inQuote = false;
+
+        for (let i = 0; i < content.length; i++) {
+            const char = content[i];
+
+            if (char === "'" && (i === 0 || content[i-1] !== '\\')) { // Simple quote handling
+                inQuote = !inQuote;
+            }
+
+            if (!inQuote) {
+                if (char === '{' || char === '[' || char === '(') depth++;
+                if (char === '}' || char === ']' || char === ')') depth--;
+            
+                if (depth === 0) {
+                    if (char === '=' && key === null) {
+                        key = buffer.trim();
+                        buffer = '';
+                        continue;
+                    } else if (char === ',') {
+                        if (key !== null) {
+                            result[key] = this.parseJavaStructure(buffer.trim());
+                            key = null;
+                            buffer = '';
+                        }
+                        continue;
+                    }
+                }
+            }
+            buffer += char;
+        }
+
+        // Last entry
+        if (key !== null) {
+            result[key] = this.parseJavaStructure(buffer.trim());
+        }
+
+        return result;
+    }
+
+    parseJavaList(content) {
+        content = content.trim();
+        if (!content) return [];
+
+        const result = [];
+        let depth = 0;
+        let buffer = '';
+        let inQuote = false;
+
+        for (let i = 0; i < content.length; i++) {
+            const char = content[i];
+
+            if (char === "'" && (i === 0 || content[i-1] !== '\\')) {
+                inQuote = !inQuote;
+            }
+
+            if (!inQuote) {
+                if (char === '{' || char === '[' || char === '(') depth++;
+                if (char === '}' || char === ']' || char === ')') depth--;
+
+                if (depth === 0 && char === ',') {
+                    result.push(this.parseJavaStructure(buffer.trim()));
+                    buffer = '';
+                    continue;
+                }
+            }
+            buffer += char;
+        }
+
+        if (buffer.trim()) {
+            result.push(this.parseJavaStructure(buffer.trim()));
+        }
+
+        return result;
     }
 
     copyOutput() {
