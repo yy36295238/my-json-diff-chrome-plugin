@@ -979,13 +979,46 @@ select.select-field {
     top: 0;
     right: 0;
     bottom: 0;
-    width: 320px;
+    width: 800px;
     background-color: var(--bg-surface);
     box-shadow: -4px 0 15px rgba(0,0,0,0.1);
     pointer-events: auto;
     display: flex;
     flex-direction: column;
     animation: slideLeft 0.3s ease;
+}
+
+/* Markdown Table Styles */
+.markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 13px;
+}
+
+.markdown-body th, .markdown-body td {
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.markdown-body th {
+    background-color: var(--bg-tertiary);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.markdown-body td {
+    color: var(--text-secondary);
+    word-break: break-all;
+}
+
+.markdown-body tr:nth-child(even) {
+    background-color: var(--bg-input);
+}
+
+.markdown-body tr:hover {
+    background-color: var(--bg-hover);
 }
 
 @keyframes slideLeft {
@@ -1090,4 +1123,15 @@ select.select-field {
     .editor-panel, .preview-panel {
         min-height: 300px;
     }
+}
+
+/* Animations */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+    transform-origin: center;
 }

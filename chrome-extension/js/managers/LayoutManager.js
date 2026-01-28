@@ -17,6 +17,7 @@ export class LayoutManager {
         });
 
         document.getElementById('themeToggle').addEventListener('click', () => this.app.toggleTheme());
+        document.getElementById('settingsBtn').addEventListener('click', () => this.openSettings());
         document.getElementById('closeError').addEventListener('click', () => this.hideErrorPanel());
         document.getElementById('closeModal').addEventListener('click', () => this.closeModal());
         document.getElementById('modalCancel').addEventListener('click', () => this.closeModal());
@@ -94,6 +95,12 @@ export class LayoutManager {
     showError(title, message) {
         const panel = document.getElementById('errorPanel');
         const content = document.getElementById('errorContent');
+        const icon = panel.querySelector('.error-icon');
+        
+        // Reset to error style
+        panel.style.borderLeftColor = 'var(--danger)';
+        if (icon) icon.textContent = '⚠️';
+
         content.innerHTML = `<strong>${title}</strong><br><br>${message.replace(/\n/g, '<br>')}`;
         panel.style.display = 'flex';
         this.updateStatus(`错误: ${title}`);
@@ -104,8 +111,31 @@ export class LayoutManager {
         }
         this._errorTimeout = setTimeout(() => {
             this.hideErrorPanel();
-            this._errorTimeout = null; // Clear the timeout ID after it executes
-        }, 5000); // 5000 milliseconds = 5 seconds
+            this._errorTimeout = null;
+        }, 5000); 
+    }
+
+    showSuccess(title, message) {
+        const panel = document.getElementById('errorPanel');
+        const content = document.getElementById('errorContent');
+        const icon = panel.querySelector('.error-icon');
+        
+        // Set to success style
+        panel.style.borderLeftColor = 'var(--success)';
+        if (icon) icon.textContent = '✅';
+
+        content.innerHTML = `<strong>${title}</strong><br><br>${message.replace(/\n/g, '<br>')}`;
+        panel.style.display = 'flex';
+        this.updateStatus(`成功: ${title}`);
+
+        // Automatically hide after 3 seconds
+        if (this._errorTimeout) {
+            clearTimeout(this._errorTimeout);
+        }
+        this._errorTimeout = setTimeout(() => {
+            this.hideErrorPanel();
+            this._errorTimeout = null;
+        }, 3000); 
     }
 
     hideErrorPanel() {
@@ -138,6 +168,40 @@ export class LayoutManager {
 
     closeModal() {
         document.getElementById('modal').style.display = 'none';
+    }
+
+    openSettings() {
+        const apiKey = localStorage.getItem('zhipu_api_key') || '';
+        const html = `
+            <div class="settings-form" style="padding: 10px;">
+                <div class="config-group">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">智谱AI API Key</label>
+                    <input type="password" id="zhipuApiKey" class="input-field" value="${apiKey}" placeholder="请输入 API Key" style="width: 100%;">
+                    <p class="help-text" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+                        用于智能修复 JSON 功能。请访问 <a href="https://open.bigmodel.cn/" target="_blank" style="color: var(--primary-color);">智谱AI开放平台</a> 获取。
+                        <br>API Key 仅保存在本地浏览器中。
+                    </p>
+                </div>
+                <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                    <button class="tool-btn primary" id="saveSettingsBtn">保存设置</button>
+                </div>
+            </div>
+        `;
+        
+        this.showSidebar('设置', html);
+        
+        document.getElementById('saveSettingsBtn').addEventListener('click', () => {
+            const key = document.getElementById('zhipuApiKey').value.trim();
+            if (key) {
+                localStorage.setItem('zhipu_api_key', key);
+                this.updateStatus('设置已保存');
+                this.closeSidebar();
+            } else {
+                localStorage.removeItem('zhipu_api_key');
+                this.updateStatus('API Key 已清除');
+                this.closeSidebar();
+            }
+        });
     }
 
     // Multi Split Logic

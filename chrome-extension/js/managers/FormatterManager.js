@@ -11,7 +11,7 @@ export class FormatterManager {
         document.getElementById('formatBtn').addEventListener('click', () => this.formatJSON());
         document.getElementById('compressBtn').addEventListener('click', () => this.compressJSON());
         document.getElementById('removeEscapeBtn').addEventListener('click', () => this.removeEscapeCharacters());
-        document.getElementById('repairBtn').addEventListener('click', () => this.repairJSON());
+        document.getElementById('smartRepairBtn').addEventListener('click', () => this.smartRepairJSON());
         const loadExampleBtn = document.getElementById('loadExampleBtn');
         if (loadExampleBtn) loadExampleBtn.addEventListener('click', () => this.loadExample());
 
@@ -352,10 +352,9 @@ export class FormatterManager {
     }
 
     /**
-     * JSON自动修复功能
-     * 修复常见的JSON格式问题,如缺失的引号、括号、逗号等
+     * AI智能修复JSON (调用智谱AI)
      */
-    repairJSON() {
+    async smartRepairJSON() {
         const editor = document.getElementById('jsonEditor');
         const input = editor.value.trim();
 
@@ -364,193 +363,91 @@ export class FormatterManager {
             return;
         }
 
-        try {
-            const repaired = this.attemptJSONRepair(input);
-            editor.value = repaired;
-            this.updatePreview(repaired);
-            this.app.addToHistory(repaired);
-            this.updateEditorInfo();
-            this.app.layout.updateStatus('JSON修复完成');
-        } catch (error) {
-            this.app.layout.showError('JSON修复失败', error.message);
-        }
-    }
-
-    attemptJSONRepair(input) {
-        let text = input;
-
-        // 1. 尝试先解析,如果成功则格式化返回
-        try {
-            const parsed = JSON.parse(text);
-            return JSON.stringify(parsed, null, 2);
-        } catch (e) {
-            // 继续修复
+        const apiKey = localStorage.getItem('zhipu_api_key');
+        if (!apiKey) {
+            this.app.layout.showError('未配置 API Key', '请点击右上角设置按钮配置智谱AI API Key');
+            // 尝试打开设置面板 (如果 LayoutManager 有这个方法)
+            if (this.app.layout.openSettings) {
+                this.app.layout.openSettings();
+            }
+            return;
         }
 
-        // 2. 移除BOM和多余空白字符
-        text = text.replace(/^\uFEFF/, '').trim();
+        const btn = document.getElementById('smartRepairBtn');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M232,128a104,104,0,0,1-20.8,61.95L192,170.82a88,88,0,0,0,0-85.64l19.2-19.13A104,104,0,0,1,232,128Z"></path></svg> 修复中...`;
+        this.app.layout.updateStatus('正在调用智谱AI进行智能修复...');
 
-        // 3. 修复常见的键名缺少引号的问题
-        // 匹配类似 {name: "value"} 的模式,转换为 {"name": "value"}
-        text = text.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
-
-        // 4. 修复单引号为双引号
-        // 需要小心处理字符串内的单引号
-        text = this.replaceSingleQuotesWithDouble(text);
-
-        // 5. 修复尾随逗号问题 (JSON不允许尾随逗号)
-        text = text.replace(/,(\s*[}\]])/g, '$1');
-
-        // 6. 修复缺少逗号的问题
-        // 对象属性之间缺少逗号
-        text = text.replace(/("\s*)([\n\r]+\s*)(")/g, '",$2"');
-        // 数组元素之间缺少逗号
-        text = text.replace(/([\}\]])\s*([\n\r]+)\s*([\{\[])/g, '$1,$2$3');
-
-        // 7. 尝试修复括号不匹配的问题
-        text = this.balanceBrackets(text);
-
-        // 8. 修复未闭合的字符串
-        text = this.fixUnclosedStrings(text);
-
-        // 9. 再次尝试解析
         try {
-            const parsed = JSON.parse(text);
-            return JSON.stringify(parsed, null, 2);
-        } catch (e) {
-            // 如果还是失败,返回修复后的文本并抛出错误
-            throw new Error(`无法完全修复JSON: ${e.message}`);
-        }
-    }
+            const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "glm-4-flash",
+                    messages: [
+                        {
+                            "role": "system",
+                            "content": "你是一个JSON修复专家。你的任务是将用户提供的错误的JSON文本修复为标准、合法的JSON格式。请只输出修复后的JSON字符串，不要包含任何Markdown标记（如```json），不要包含任何解释性文字。必须确保输出是合法的JSON。如果输入已经是合法的，请原样返回。"
+                        },
+                        {
+                            "role": "user",
+                            "content": input
+                        }
+                    ],
+                    temperature: 0.1,
+                    top_p: 0.7,
+                    max_tokens: 4096
+                })
+            });
 
-    /**
-     * 将单引号替换为双引号(仅在字符串边界)
-     */
-    replaceSingleQuotesWithDouble(text) {
-        let result = '';
-        let inDoubleQuote = false;
-        let inSingleQuote = false;
-        let prevChar = '';
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || 'API 请求失败');
+            }
 
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            const nextChar = text[i + 1] || '';
+            const data = await response.json();
+            const content = data.choices[0]?.message?.content;
 
-            if (char === '"' && prevChar !== '\\') {
-                inDoubleQuote = !inDoubleQuote;
-                result += char;
-            } else if (char === "'" && prevChar !== '\\' && !inDoubleQuote) {
-                if (!inSingleQuote) {
-                    // 开始单引号字符串
-                    inSingleQuote = true;
-                    result += '"';
-                } else {
-                    // 结束单引号字符串
-                    inSingleQuote = false;
-                    result += '"';
+            if (content) {
+                // 清理可能的 markdown 标记
+                let cleaned = content.trim();
+                if (cleaned.startsWith('```json')) {
+                    cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+                } else if (cleaned.startsWith('```')) {
+                    cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+                }
+
+                // 验证并格式化
+                try {
+                    const parsed = JSON.parse(cleaned);
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    editor.value = formatted;
+                    this.updatePreview(formatted);
+                    this.app.addToHistory(formatted);
+                    this.updateEditorInfo();
+                    this.app.layout.updateStatus('智能修复成功');
+                    if (this.app.layout.showSuccess) {
+                        this.app.layout.showSuccess('智能修复成功', 'JSON 已成功修复并格式化。');
+                    }
+                } catch (e) {
+                    console.warn('AI output is not valid JSON:', cleaned);
+                    editor.value = cleaned;
+                    this.app.layout.showError('修复结果验证失败', 'AI返回的内容不是有效的JSON格式，已填充到编辑器供您检查。');
                 }
             } else {
-                result += char;
+                 throw new Error('AI 未返回有效内容');
             }
 
-            prevChar = char;
+        } catch (error) {
+            console.error('Smart repair failed', error);
+            this.app.layout.showError('智能修复失败', error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
-
-        return result;
-    }
-
-    /**
-     * 平衡括号(大括号和中括号)
-     */
-    balanceBrackets(text) {
-        const openBrackets = { '{': 0, '[': 0 };
-        const closeBrackets = { '}': 0, ']': 0 };
-        let inString = false;
-        let prevChar = '';
-
-        // 统计括号数量
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-
-            if (char === '"' && prevChar !== '\\') {
-                inString = !inString;
-            }
-
-            if (!inString) {
-                if (char === '{') openBrackets['{']++;
-                if (char === '[') openBrackets['[']++;
-                if (char === '}') closeBrackets['}']++;
-                if (char === ']') closeBrackets[']']++;
-            }
-
-            prevChar = char;
-        }
-
-        // 补充缺失的闭合括号
-        let suffix = '';
-        const missingCurly = openBrackets['{'] - closeBrackets['}'];
-        const missingSquare = openBrackets['['] - closeBrackets[']'];
-
-        if (missingCurly > 0) {
-            suffix += '}'.repeat(missingCurly);
-        }
-        if (missingSquare > 0) {
-            suffix += ']'.repeat(missingSquare);
-        }
-
-        // 移除多余的开括号(从开头移除)
-        let result = text;
-        if (missingCurly < 0) {
-            // 有多余的闭合大括号,尝试移除开头的开括号
-            const toRemove = Math.abs(missingCurly);
-            let removed = 0;
-            result = '';
-            for (let i = 0; i < text.length && removed < toRemove; i++) {
-                if (text[i] === '{') {
-                    removed++;
-                    continue;
-                }
-                result += text[i];
-            }
-            if (removed < toRemove) {
-                result = text; // 还原
-            }
-        }
-
-        return result + suffix;
-    }
-
-    /**
-     * 修复未闭合的字符串
-     */
-    fixUnclosedStrings(text) {
-        let result = '';
-        let inString = false;
-        let stringStart = -1;
-        let prevChar = '';
-
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-
-            if (char === '"' && prevChar !== '\\') {
-                if (!inString) {
-                    inString = true;
-                    stringStart = i;
-                } else {
-                    inString = false;
-                    stringStart = -1;
-                }
-            }
-
-            result += char;
-            prevChar = char;
-        }
-
-        // 如果字符串未闭合,在末尾添加引号
-        if (inString && stringStart !== -1) {
-            result += '"';
-        }
-
-        return result;
     }
 }
