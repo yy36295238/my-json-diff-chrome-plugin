@@ -201,6 +201,7 @@ export class CompareManager {
         }
 
         const apiKey = localStorage.getItem('zhipu_api_key');
+        const zhipuModel = localStorage.getItem('zhipu_model') || 'glm-5.1';
         if (!apiKey) {
             this.app.layout.showError('未配置 API Key', '请点击右上角设置按钮配置智谱AI API Key');
             if (this.app.layout.openSettings) {
@@ -221,14 +222,14 @@ export class CompareManager {
             const l = leftText.length > maxLen ? leftText.substring(0, maxLen) + '...(truncated)' : leftText;
             const r = rightText.length > maxLen ? rightText.substring(0, maxLen) + '...(truncated)' : rightText;
 
-            const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+            const response = await fetch('https://open.bigmodel.cn/api/coding/paas/v4/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    model: "glm-4-flash",
+                    model: zhipuModel,
                     messages: [
                         {
                             "role": "system",

@@ -170,8 +170,9 @@ export class LayoutManager {
         document.getElementById('modal').style.display = 'none';
     }
 
-    openSettings() {
+        openSettings() {
         const apiKey = localStorage.getItem('zhipu_api_key') || '';
+        const zhipuModel = localStorage.getItem('zhipu_model') || 'glm-5.1';
         const html = `
             <div class="settings-form" style="padding: 10px;">
                 <div class="config-group">
@@ -182,25 +183,39 @@ export class LayoutManager {
                         <br>API Key 仅保存在本地浏览器中。
                     </p>
                 </div>
+                <div class="config-group" style="margin-top: 15px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">智谱AI 模型名称</label>
+                    <input type="text" id="zhipuModel" class="input-field" value="${zhipuModel}" placeholder="例如: glm-5.1" style="width: 100%;">
+                    <p class="help-text" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+                        默认为 glm-5.1。如果需要更高精度，可填入其他模型名称（如 glm-4）。
+                    </p>
+                </div>
                 <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
                     <button class="tool-btn primary" id="saveSettingsBtn">保存设置</button>
                 </div>
             </div>
         `;
-        
+
         this.showSidebar('设置', html);
-        
+
         document.getElementById('saveSettingsBtn').addEventListener('click', () => {
             const key = document.getElementById('zhipuApiKey').value.trim();
+            const model = document.getElementById('zhipuModel').value.trim();
+            
             if (key) {
                 localStorage.setItem('zhipu_api_key', key);
-                this.updateStatus('设置已保存');
-                this.closeSidebar();
             } else {
                 localStorage.removeItem('zhipu_api_key');
-                this.updateStatus('API Key 已清除');
-                this.closeSidebar();
             }
+
+            if (model) {
+                localStorage.setItem('zhipu_model', model);
+            } else {
+                localStorage.removeItem('zhipu_model');
+            }
+
+            this.updateStatus('设置已保存');
+            this.closeSidebar();
         });
     }
 

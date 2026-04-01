@@ -364,6 +364,7 @@ export class FormatterManager {
         }
 
         const apiKey = localStorage.getItem('zhipu_api_key');
+        const zhipuModel = localStorage.getItem('zhipu_model') || 'glm-5.1';
         if (!apiKey) {
             this.app.layout.showError('未配置 API Key', '请点击右上角设置按钮配置智谱AI API Key');
             // 尝试打开设置面板 (如果 LayoutManager 有这个方法)
@@ -380,14 +381,14 @@ export class FormatterManager {
         this.app.layout.updateStatus('正在调用智谱AI进行智能修复...');
 
         try {
-            const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+            const response = await fetch('https://open.bigmodel.cn/api/coding/paas/v4/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    model: "glm-4-flash",
+                    model: zhipuModel,
                     messages: [
                         {
                             "role": "system",
