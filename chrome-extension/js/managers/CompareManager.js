@@ -178,9 +178,12 @@ export class CompareManager {
             if (!leftFormatted && !rightFormatted) return;
 
             const diff = this.calculateStructuralDiff(leftObj, rightObj);
-            this.updateDiffHighlights(diff, leftFormatted, rightFormatted);
+            this.updateDiffHighlights(diff, leftFormatted, rightFormatted, leftObj, rightObj);
 
-            if (!silent) this.app.layout.updateStatus(`对比完成：发现 ${diff.length} 处差异`);
+            if (!silent) {
+                this.showDiffSummary(diff);
+                this.app.layout.updateStatus(diff.length ? `对比完成：发现 ${diff.length} 处差异` : '对比完成：未发现差异');
+            }
 
         } catch (error) {
             if (!silent) {
@@ -336,86 +339,87 @@ export class CompareManager {
         return tableHtml;
     }
 
-    calculateStructuralDiff(left, right, path = '') {
+    /**
+     * 递归对比任意 JSON 结构，并为左右两侧分别保留精确路径。
+     */
+    calculateStructuralDiff(left, right, pathTokens = [], leftPathTokens = pathTokens, rightPathTokens = pathTokens) {
         const differences = [];
-        if (left === null || right === null) {
+
+        const addDiff = (type, leftValue, rightValue, currentLeftPath = leftPathTokens, currentRightPath = rightPathTokens, currentPath = pathTokens) => {
+            differences.push({
+                path: this.formatPath(currentPath),
+                pathTokens: currentPath,
+                leftPath: currentLeftPath ? this.formatPath(currentLeftPath) : null,
+                rightPath: currentRightPath ? this.formatPath(currentRightPath) : null,
+                leftPathTokens: currentLeftPath,
+                rightPathTokens: currentRightPath,
+                type,
+                leftValue,
+                rightValue
+            });
+        };
+
+        const leftKind = this.getJsonKind(left);
+        const rightKind = this.getJsonKind(right);
+
+        if (leftKind !== rightKind) {
+            addDiff('modified', left, right);
+            return differences;
+        }
+
+        if (leftKind === 'primitive' || leftKind === 'null') {
             if (left !== right) {
-                differences.push({ path: path || 'root', type: left === null ? 'added' : 'removed', leftValue: left, rightValue: right });
+                addDiff('modified', left, right);
             }
             return differences;
         }
-        if (typeof left !== 'object' || typeof right !== 'object') {
-            if (left !== right) {
-                differences.push({ path: path || 'root', type: 'modified', leftValue: left, rightValue: right });
-            }
-            return differences;
-        }
-        if (Array.isArray(left) && Array.isArray(right)) {
-            // 智能数组对比：尝试通过内容匹配数组元素
+
+        if (leftKind === 'array') {
             const matched = this.matchArrayElements(left, right);
 
-            // 处理已匹配的元素 - 递归比较内容
             matched.matched.forEach(({ leftIndex, rightIndex }) => {
-                const leftPath = path ? `${path}[${leftIndex}]` : `[${leftIndex}]`;
-                const rightPath = path ? `${path}[${rightIndex}]` : `[${rightIndex}]`;
-                const subDiffs = this.calculateStructuralDiff(left[leftIndex], right[rightIndex], '');
-
-                // 将子差异的路径加上正确的数组索引前缀
-                subDiffs.forEach(diff => {
-                    differences.push({
-                        ...diff,
-                        leftPath: leftPath + (diff.path ? '.' + diff.path : ''),
-                        rightPath: rightPath + (diff.path ? '.' + diff.path : ''),
-                        path: diff.path // 保留原始相对路径用于显示
-                    });
-                });
+                const displayPath = [...pathTokens, rightIndex];
+                differences.push(...this.calculateStructuralDiff(
+                    left[leftIndex],
+                    right[rightIndex],
+                    displayPath,
+                    [...leftPathTokens, leftIndex],
+                    [...rightPathTokens, rightIndex]
+                ));
             });
 
-            // 处理左侧未匹配的元素（被删除）
             matched.unmatched.left.forEach(index => {
-                const currPath = path ? `${path}[${index}]` : `[${index}]`;
-                differences.push({
-                    path: currPath,
-                    leftPath: currPath,
-                    rightPath: null,
-                    type: 'removed',
-                    leftValue: left[index],
-                    rightValue: undefined,
-                    leftIndex: index
-                });
+                const currentPath = [...leftPathTokens, index];
+                addDiff('removed', left[index], undefined, currentPath, null, currentPath);
             });
 
-            // 处理右侧未匹配的元素（新增）
             matched.unmatched.right.forEach(index => {
-                const currPath = path ? `${path}[${index}]` : `[${index}]`;
-                differences.push({
-                    path: currPath,
-                    leftPath: null,
-                    rightPath: currPath,
-                    type: 'added',
-                    leftValue: undefined,
-                    rightValue: right[index],
-                    rightIndex: index
-                });
+                const currentPath = [...rightPathTokens, index];
+                addDiff('added', undefined, right[index], null, currentPath, currentPath);
             });
 
             return differences;
         }
-        if (typeof left === 'object' && typeof right === 'object') {
-            const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
-            for (const key of keys) {
-                const currPath = path ? `${path}.${key}` : key;
-                if (!(key in left)) differences.push({ path: currPath, type: 'added', leftValue: undefined, rightValue: right[key] });
-                else if (!(key in right)) differences.push({ path: currPath, type: 'removed', leftValue: left[key], rightValue: undefined });
-                else differences.push(...this.calculateStructuralDiff(left[key], right[key], currPath));
+
+        const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+        for (const key of keys) {
+            const currentPath = [...pathTokens, key];
+            const currentLeftPath = [...leftPathTokens, key];
+            const currentRightPath = [...rightPathTokens, key];
+            if (!Object.prototype.hasOwnProperty.call(left, key)) {
+                addDiff('added', undefined, right[key], null, currentRightPath, currentPath);
+            } else if (!Object.prototype.hasOwnProperty.call(right, key)) {
+                addDiff('removed', left[key], undefined, currentLeftPath, null, currentPath);
+            } else {
+                differences.push(...this.calculateStructuralDiff(left[key], right[key], currentPath, currentLeftPath, currentRightPath));
             }
         }
+
         return differences;
     }
 
     /**
-     * 智能匹配数组元素
-     * 尝试通过内容相似度找到最佳匹配，而不是简单按索引对比
+     * 智能匹配数组元素，优先处理对象集合里的稳定标识，再回退到索引和相似度。
      */
     matchArrayElements(leftArray, rightArray) {
         const leftLen = leftArray.length;
@@ -424,7 +428,6 @@ export class CompareManager {
         const unmatchedLeft = new Set([...Array(leftLen).keys()]);
         const unmatchedRight = new Set([...Array(rightLen).keys()]);
 
-        // 如果数组为空，直接返回
         if (leftLen === 0 || rightLen === 0) {
             return {
                 matched,
@@ -435,88 +438,71 @@ export class CompareManager {
             };
         }
 
-        // 第一遍：完全相等匹配
+        const takeMatch = (leftIndex, rightIndex, reason, score = 1) => {
+            if (!unmatchedLeft.has(leftIndex) || !unmatchedRight.has(rightIndex)) return false;
+            matched.push({ leftIndex, rightIndex, reason, score });
+            unmatchedLeft.delete(leftIndex);
+            unmatchedRight.delete(rightIndex);
+            return true;
+        };
+
         for (let i = 0; i < leftLen; i++) {
             if (!unmatchedLeft.has(i)) continue;
             for (let j = 0; j < rightLen; j++) {
                 if (!unmatchedRight.has(j)) continue;
                 if (this.deepEquals(leftArray[i], rightArray[j])) {
-                    matched.push({ leftIndex: i, rightIndex: j });
-                    unmatchedLeft.delete(i);
-                    unmatchedRight.delete(j);
+                    takeMatch(i, j, 'exact', 1);
                     break;
                 }
             }
         }
 
-        // 第二遍：对于对象类型，尝试通过唯一标识符匹配（如id字段）
-        const leftRemaining = Array.from(unmatchedLeft);
-        const rightRemaining = Array.from(unmatchedRight);
+        const identityCandidates = [];
+        Array.from(unmatchedLeft).forEach(i => {
+            Array.from(unmatchedRight).forEach(j => {
+                const score = this.calculateIdentityScore(leftArray[i], rightArray[j]);
+                if (score > 0) identityCandidates.push({ leftIndex: i, rightIndex: j, score, reason: 'identity' });
+            });
+        });
+        identityCandidates
+            .sort((a, b) => b.score - a.score || a.leftIndex - b.leftIndex || a.rightIndex - b.rightIndex)
+            .forEach(candidate => takeMatch(candidate.leftIndex, candidate.rightIndex, candidate.reason, candidate.score));
 
-        for (const i of leftRemaining) {
-            const leftItem = leftArray[i];
-            if (typeof leftItem !== 'object' || leftItem === null || Array.isArray(leftItem)) continue;
-
-            // 尝试通过id、_id、key等常见唯一标识符匹配
-            const idFields = ['id', '_id', 'key', 'code', 'uuid'];
-            let foundMatch = false;
-
-            for (const idField of idFields) {
-                if (!(idField in leftItem)) continue;
-                const leftId = leftItem[idField];
-
-                for (const j of rightRemaining) {
-                    if (!unmatchedRight.has(j)) continue;
-                    const rightItem = rightArray[j];
-                    if (typeof rightItem !== 'object' || rightItem === null || Array.isArray(rightItem)) continue;
-
-                    if (idField in rightItem && rightItem[idField] === leftId) {
-                        matched.push({ leftIndex: i, rightIndex: j });
-                        unmatchedLeft.delete(i);
-                        unmatchedRight.delete(j);
-                        foundMatch = true;
-                        break;
-                    }
-                }
-                if (foundMatch) break;
-            }
-        }
-
-        // 第三遍：对于剩余元素，尝试通过相似度匹配
-        const stillUnmatchedLeft = Array.from(unmatchedLeft);
-        const stillUnmatchedRight = Array.from(unmatchedRight);
-
-        for (const i of stillUnmatchedLeft) {
-            let bestMatch = -1;
-            let bestSimilarity = 0.5; // 最低相似度阈值
-
-            for (const j of stillUnmatchedRight) {
-                if (!unmatchedRight.has(j)) continue;
+        const similarityCandidates = [];
+        Array.from(unmatchedLeft).forEach(i => {
+            Array.from(unmatchedRight).forEach(j => {
                 const similarity = this.calculateSimilarity(leftArray[i], rightArray[j]);
-                if (similarity > bestSimilarity) {
-                    bestSimilarity = similarity;
-                    bestMatch = j;
+                if (similarity >= 0.55) {
+                    similarityCandidates.push({ leftIndex: i, rightIndex: j, score: similarity, reason: 'similarity' });
                 }
-            }
+            });
+        });
+        similarityCandidates
+            .sort((a, b) => b.score - a.score || a.leftIndex - b.leftIndex || a.rightIndex - b.rightIndex)
+            .forEach(candidate => takeMatch(candidate.leftIndex, candidate.rightIndex, candidate.reason, candidate.score));
 
-            if (bestMatch !== -1) {
-                matched.push({ leftIndex: i, rightIndex: bestMatch });
-                unmatchedLeft.delete(i);
-                unmatchedRight.delete(bestMatch);
+        Array.from(unmatchedLeft).forEach(i => {
+            if (!unmatchedRight.has(i)) return;
+
+            const leftKind = this.getJsonKind(leftArray[i]);
+            const rightKind = this.getJsonKind(rightArray[i]);
+            const hasStableIdentity = this.hasIdentityField(leftArray[i]) || this.hasIdentityField(rightArray[i]);
+            if (leftKind === rightKind && (leftKind !== 'object' || !hasStableIdentity)) {
+                takeMatch(i, i, 'index', 0.65);
             }
-        }
+        });
 
         return {
             matched,
             unmatched: {
-                left: Array.from(unmatchedLeft),
-                right: Array.from(unmatchedRight)
+                left: Array.from(unmatchedLeft).sort((a, b) => a - b),
+                right: Array.from(unmatchedRight).sort((a, b) => a - b)
             }
         };
     }
 
     /**
-     * 深度相等比较
+     * 深度相等比较，避免对象字段顺序影响集合元素匹配。
      */
     deepEquals(a, b) {
         if (a === b) return true;
@@ -547,76 +533,106 @@ export class CompareManager {
     }
 
     /**
-     * 计算两个值的相似度（0-1之间）
+     * 计算两个值的相似度，用于没有显式 id 的对象集合。
      */
     calculateSimilarity(a, b) {
         if (this.deepEquals(a, b)) return 1;
         if (typeof a !== typeof b) return 0;
-        if (typeof a !== 'object' || a === null || b === null) return 0;
+        if (typeof a !== 'object' || a === null || b === null) return a === b ? 1 : 0;
 
-        // 对于对象，计算相同字段的比例
         if (!Array.isArray(a) && !Array.isArray(b)) {
             const keysA = Object.keys(a);
             const keysB = Object.keys(b);
             const allKeys = new Set([...keysA, ...keysB]);
             if (allKeys.size === 0) return 1;
 
-            let sameCount = 0;
-            let totalCount = allKeys.size;
+            let score = 0;
 
             for (const key of allKeys) {
                 if (key in a && key in b) {
-                    if (this.deepEquals(a[key], b[key])) {
-                        sameCount += 1;
-                    } else {
-                        sameCount += 0.5; // 键存在但值不同，给一半分数
-                    }
+                    score += this.calculateSimilarity(a[key], b[key]);
                 }
             }
 
-            return sameCount / totalCount;
+            return score / allKeys.size;
+        }
+
+        if (Array.isArray(a) && Array.isArray(b)) {
+            const maxLen = Math.max(a.length, b.length);
+            if (maxLen === 0) return 1;
+
+            let exactCount = 0;
+            const usedRight = new Set();
+            for (const leftItem of a) {
+                const rightIndex = b.findIndex((rightItem, index) => !usedRight.has(index) && this.deepEquals(leftItem, rightItem));
+                if (rightIndex !== -1) {
+                    exactCount += 1;
+                    usedRight.add(rightIndex);
+                }
+            }
+            return exactCount / maxLen;
         }
 
         return 0;
     }
 
-    updateDiffHighlights(differences, leftFormatted, rightFormatted) {
-        console.log('[CompareManager] Updating diff highlights, differences count:', differences.length);
-        const leftLines = this.getDiffLineData(leftFormatted, differences, 'left');
-        const rightLines = this.getDiffLineData(rightFormatted, differences, 'right');
-        console.log('[CompareManager] Left diff lines:', leftLines.filter(l => l.type !== 'same').length);
-        console.log('[CompareManager] Right diff lines:', rightLines.filter(l => l.type !== 'same').length);
+    /**
+     * 从常见唯一字段判断两个数组对象是否代表同一条业务记录。
+     */
+    calculateIdentityScore(leftItem, rightItem) {
+        if (this.getJsonKind(leftItem) !== 'object' || this.getJsonKind(rightItem) !== 'object') return 0;
+
+        const idFields = this.getIdentityFields();
+        for (const idField of idFields) {
+            if (!Object.prototype.hasOwnProperty.call(leftItem, idField)) continue;
+            if (!Object.prototype.hasOwnProperty.call(rightItem, idField)) continue;
+            if (leftItem[idField] !== null && leftItem[idField] === rightItem[idField]) return 0.98;
+        }
+
+        return 0;
+    }
+
+    getIdentityFields() {
+        return ['id', '_id', 'key', 'code', 'uuid', 'uid', 'name', 'slug', 'sku'];
+    }
+
+    hasIdentityField(value) {
+        if (this.getJsonKind(value) !== 'object') return false;
+        return this.getIdentityFields().some(field => Object.prototype.hasOwnProperty.call(value, field));
+    }
+
+    /**
+     * 返回 JSON 值类型，区分数组、对象、null 和基础值。
+     */
+    getJsonKind(value) {
+        if (value === null) return 'null';
+        if (Array.isArray(value)) return 'array';
+        if (typeof value === 'object') return 'object';
+        return 'primitive';
+    }
+
+    updateDiffHighlights(differences, leftFormatted, rightFormatted, leftObj, rightObj) {
+        const leftLines = this.getDiffLineData(leftFormatted, differences, 'left', leftObj);
+        const rightLines = this.getDiffLineData(rightFormatted, differences, 'right', rightObj);
         this.updateCompareDisplay('leftJson', leftLines);
         this.updateCompareDisplay('rightJson', rightLines);
     }
 
-    getDiffLineData(formattedString, differences, side) {
+    getDiffLineData(formattedString, differences, side, rootValue) {
         const lines = formattedString.split('\n');
         const diffLines = [];
 
-        // 构建路径到行号的映射
-        const pathToLines = this.buildPathToLineMapping(formattedString);
-        console.log(`[getDiffLineData] ${side} - Path to lines mapping:`, pathToLines);
+        const pathToLines = this.buildPathToLineMapping(formattedString, rootValue);
 
-        // 初始化所有行为'same'
         for (let i = 0; i < lines.length; i++) {
             diffLines.push({ type: 'same', lineNumber: i + 1 });
         }
 
-        // 根据差异标记对应的行
         for (const diff of differences) {
-            const targetPath = side === 'left' ? diff.leftPath : diff.rightPath;
-            console.log(`[getDiffLineData] ${side} - Processing diff:`, diff.type, 'targetPath:', targetPath, 'path:', diff.path);
+            const actualPathTokens = side === 'left' ? diff.leftPathTokens : diff.rightPathTokens;
+            if (!actualPathTokens) continue;
 
-            // 如果该侧没有对应的路径（比如左侧删除，右侧为null），跳过
-            if (!targetPath && !diff.path) continue;
-
-            // 如果没有leftPath/rightPath，尝试使用path
-            const actualPath = targetPath || diff.path;
-
-            // 获取该路径对应的行范围
-            const lineRanges = this.findLinesForPath(pathToLines, actualPath, diff.type);
-            console.log(`[getDiffLineData] ${side} - Line ranges for path '${actualPath}':`, lineRanges);
+            const lineRanges = this.findLinesForPath(pathToLines, actualPathTokens);
 
             lineRanges.forEach(lineIndex => {
                 if (lineIndex >= 0 && lineIndex < diffLines.length) {
@@ -635,147 +651,157 @@ export class CompareManager {
     }
 
     /**
-     * 构建路径到行号的映射
-     * 返回格式: { '[0]': [1,2,3,4,5,6,7], '[0].id': [2], '[0].code': [3], ... }
+     * 基于 JSON.stringify 的缩进规则构建路径到行号的映射，避免 key 中包含点号或转义字符时误判。
      */
-    buildPathToLineMapping(formattedString) {
+    buildPathToLineMapping(formattedString, rootValue) {
         const lines = formattedString.split('\n');
         const mapping = {};
 
-        // 统一把根节点映射到所有行，便于处理 diff.path === 'root'
-        if (lines.length > 0) {
-            mapping.root = Array.from({ length: lines.length }, (_, i) => i);
-        }
-
         const addLine = (path, lineIndex) => {
-            if (!path) return;
-            if (!mapping[path]) mapping[path] = [];
-            mapping[path].push(lineIndex);
+            const key = this.pathKey(path);
+            if (!mapping[key]) mapping[key] = [];
+            if (!mapping[key].includes(lineIndex)) mapping[key].push(lineIndex);
         };
 
         const addRange = (path, start, end) => {
-            if (!path) return;
-            if (!mapping[path]) mapping[path] = [];
+            const key = this.pathKey(path);
+            if (!mapping[key]) mapping[key] = [];
             for (let i = start; i <= end; i++) {
-                mapping[path].push(i);
+                if (!mapping[key].includes(i)) mapping[key].push(i);
             }
         };
 
-        const joinPath = (base, key) => (base ? `${base}.${key}` : key);
+        const isInlineValue = value => {
+            if (value === null || typeof value !== 'object') return true;
+            if (Array.isArray(value)) return value.length === 0;
+            return Object.keys(value).length === 0;
+        };
 
-        // frame: { type: 'object'|'array', path: string, startLine: number, nextIndex?: number, isArrayElement?: boolean, parentArray?: frame }
-        const stack = [];
-        const top = () => (stack.length ? stack[stack.length - 1] : null);
+        const walk = (value, path, startLine) => {
+            addLine(path, startLine);
 
-        for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-            const trimmed = lines[lineIndex].trim();
-            if (!trimmed) continue;
+            if (isInlineValue(value)) return startLine;
 
-            // 先处理容器结束（该行属于当前容器的范围）
-            if (trimmed === '}' || trimmed === '},' || trimmed === ']' || trimmed === '],') {
-                const frame = top();
-                if (frame) {
-                    stack.pop();
-                    if (frame.path) addRange(frame.path, frame.startLine, lineIndex);
+            let cursor = startLine + 1;
 
-                    // 如果这个 frame 是数组元素（对象/数组），关闭时推进父数组 index
-                    if (frame.isArrayElement && frame.parentArray) {
-                        frame.parentArray.nextIndex = (frame.parentArray.nextIndex ?? 0) + 1;
+            if (Array.isArray(value)) {
+                for (let index = 0; index < value.length; index++) {
+                    const childPath = [...path, index];
+                    if (isInlineValue(value[index])) {
+                        addLine(childPath, cursor);
+                    } else {
+                        cursor = walk(value[index], childPath, cursor);
                     }
+                    cursor += 1;
                 }
-                continue;
-            }
-
-            let frame = top();
-
-            // 根容器开始
-            if (!frame) {
-                if (trimmed === '{') {
-                    stack.push({ type: 'object', path: '', startLine: lineIndex });
-                } else if (trimmed === '[') {
-                    stack.push({ type: 'array', path: '', startLine: lineIndex, nextIndex: 0 });
-                }
-                continue;
-            }
-
-            // 数组内：处理元素（对象/数组/原始值）
-            if (frame.type === 'array') {
-                if (trimmed === '{' || trimmed === '[') {
-                    const idx = frame.nextIndex ?? 0;
-                    const elementPath = frame.path ? `${frame.path}[${idx}]` : `[${idx}]`;
-                    stack.push({
-                        type: trimmed === '{' ? 'object' : 'array',
-                        path: elementPath,
-                        startLine: lineIndex,
-                        isArrayElement: true,
-                        parentArray: frame,
-                        nextIndex: trimmed === '[' ? 0 : undefined
-                    });
-                    continue;
-                }
-
-                // 原始值元素（number/string/boolean/null）
-                const idx = frame.nextIndex ?? 0;
-                const elementPath = frame.path ? `${frame.path}[${idx}]` : `[${idx}]`;
-                addLine(elementPath, lineIndex);
-                frame.nextIndex = idx + 1;
-                continue;
-            }
-
-            // 对象内：处理 key 行
-            if (frame.type === 'object') {
-                const keyMatch = trimmed.match(/^"([^"]+)"\s*:\s*(.*)$/);
-                if (keyMatch) {
-                    const key = keyMatch[1];
-                    const rest = keyMatch[2];
-                    const keyPath = joinPath(frame.path, key);
-
-                    // key 所在行先记录
-                    addLine(keyPath, lineIndex);
-
-                    // value 是容器并且起始就在同一行："k": { 或 "k": [
-                    if (rest.startsWith('{') || rest.startsWith('[')) {
-                        const isObj = rest.startsWith('{');
-                        stack.push({
-                            type: isObj ? 'object' : 'array',
-                            path: keyPath,
-                            startLine: lineIndex,
-                            nextIndex: isObj ? undefined : 0
-                        });
+            } else {
+                for (const key of Object.keys(value)) {
+                    const childPath = [...path, key];
+                    if (isInlineValue(value[key])) {
+                        addLine(childPath, cursor);
+                    } else {
+                        cursor = walk(value[key], childPath, cursor);
                     }
+                    cursor += 1;
                 }
-                continue;
             }
-        }
+
+            const endLine = Math.min(cursor, lines.length - 1);
+            addRange(path, startLine, endLine);
+            return endLine;
+        };
+
+        if (lines.length > 0) walk(rootValue, [], 0);
 
         return mapping;
     }
 
     /**
-     * 查找路径对应的行号
+     * 查找路径对应的行号，找不到精确路径时回退到最近父节点。
      */
-    findLinesForPath(pathToLines, targetPath, diffType) {
-        // 直接查找完全匹配的路径
-        if (pathToLines[targetPath]) {
-            return pathToLines[targetPath];
+    findLinesForPath(pathToLines, targetPathTokens) {
+        for (let length = targetPathTokens.length; length >= 0; length--) {
+            const key = this.pathKey(targetPathTokens.slice(0, length));
+            if (pathToLines[key]) return pathToLines[key];
         }
 
-        // 如果是数组元素级别的差异（如[8]、[9]），返回该元素的所有行
-        const arrayIndexMatch = targetPath.match(/^\[(\d+)\]$/);
-        if (arrayIndexMatch) {
-            return pathToLines[targetPath] || [];
-        }
+        return pathToLines[this.pathKey([])] || [];
+    }
 
-        // 对于嵌套路径，尝试查找父路径
-        const pathParts = targetPath.split('.');
-        for (let i = pathParts.length; i > 0; i--) {
-            const partialPath = pathParts.slice(0, i).join('.');
-            if (pathToLines[partialPath]) {
-                return pathToLines[partialPath];
-            }
-        }
+    pathKey(pathTokens) {
+        return JSON.stringify(pathTokens || []);
+    }
 
-        return [];
+    formatPath(pathTokens) {
+        if (!pathTokens || pathTokens.length === 0) return 'root';
+
+        return pathTokens.reduce((result, token) => {
+            if (typeof token === 'number') return `${result}[${token}]`;
+            if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(token)) return result ? `${result}.${token}` : token;
+            return `${result}[${JSON.stringify(token)}]`;
+        }, '');
+    }
+
+    getDiffTypeLabel(type) {
+        const labels = {
+            added: '新增',
+            removed: '删除',
+            modified: '修改'
+        };
+        return labels[type] || type;
+    }
+
+    formatValuePreview(value) {
+        if (value === undefined) return '不存在';
+        const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+        if (text === undefined) return String(value);
+        return text.length > 260 ? `${text.slice(0, 260)}...` : text;
+    }
+
+    showDiffSummary(differences) {
+        const counts = differences.reduce((result, diff) => {
+            result[diff.type] = (result[diff.type] || 0) + 1;
+            return result;
+        }, { added: 0, removed: 0, modified: 0 });
+
+        const rows = differences.slice(0, 200).map(diff => `
+            <tr>
+                <td><code>${Utils.escapeHtml(diff.path)}</code></td>
+                <td>${this.getDiffTypeLabel(diff.type)}</td>
+                <td><pre>${Utils.escapeHtml(this.formatValuePreview(diff.leftValue))}</pre></td>
+                <td><pre>${Utils.escapeHtml(this.formatValuePreview(diff.rightValue))}</pre></td>
+            </tr>
+        `).join('');
+
+        const omitted = differences.length > 200
+            ? `<p style="margin-top: 10px; color: var(--text-secondary);">仅展示前 200 条差异，其余 ${differences.length - 200} 条请结合左右高亮查看。</p>`
+            : '';
+
+        const htmlContent = `
+            <div style="padding: 10px; line-height: 1.5;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                    <span class="diff-pill added">新增 ${counts.added}</span>
+                    <span class="diff-pill removed">删除 ${counts.removed}</span>
+                    <span class="diff-pill modified">修改 ${counts.modified}</span>
+                </div>
+                ${differences.length ? `
+                    <table class="diff-summary-table">
+                        <thead>
+                            <tr>
+                                <th>路径</th>
+                                <th>类型</th>
+                                <th>左侧</th>
+                                <th>右侧</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                    ${omitted}
+                ` : '<p style="color: var(--text-secondary);">两个 JSON 内容一致。</p>'}
+            </div>
+        `;
+
+        this.app.layout.showSidebar('结构化对比结果', htmlContent);
     }
 
     updateCompareDisplay(textareaId, diffLines) {
@@ -916,14 +942,97 @@ export class CompareManager {
 
     loadDemoData() {
         const leftData = {
-            "product": "iPhone 15 Pro",
-            "specs": { "screen": "6.1-inch", "chip": "A17 Pro", "storage": "256GB" },
-            "price": 9999
+            "orderId": "SO-2026-001",
+            "status": "pending",
+            "customer": {
+                "id": "C1001",
+                "name": "张三",
+                "tags": ["vip", "north"],
+                "profile.extra": {
+                    "level": 3,
+                    "enabled": true
+                }
+            },
+            "items": [
+                {
+                    "sku": "A-100",
+                    "name": "键盘",
+                    "qty": 1,
+                    "price": 399,
+                    "options": [
+                        { "code": "color", "value": "black" },
+                        { "code": "switch", "value": "red" }
+                    ]
+                },
+                {
+                    "sku": "B-200",
+                    "name": "鼠标",
+                    "qty": 2,
+                    "price": 199
+                },
+                {
+                    "sku": "C-300",
+                    "name": "腕托",
+                    "qty": 1,
+                    "price": 59
+                }
+            ],
+            "payments": [
+                { "id": "pay-1", "type": "card", "amount": 500 },
+                { "id": "pay-2", "type": "coupon", "amount": 357 }
+            ],
+            "meta": {
+                "source": "web",
+                "flags": [true, false, null]
+            }
         };
         const rightData = {
-            "product": "iPhone 15 Pro Max",
-            "specs": { "screen": "6.7-inch", "chip": "A17 Pro", "storage": "512GB" },
-            "price": 11999
+            "orderId": "SO-2026-001",
+            "status": "paid",
+            "customer": {
+                "id": "C1001",
+                "name": "张三",
+                "tags": ["north", "vip", "new"],
+                "profile.extra": {
+                    "level": 4,
+                    "enabled": true
+                }
+            },
+            "items": [
+                {
+                    "sku": "B-200",
+                    "name": "鼠标",
+                    "qty": 1,
+                    "price": 189
+                },
+                {
+                    "sku": "A-100",
+                    "name": "键盘",
+                    "qty": 1,
+                    "price": 399,
+                    "options": [
+                        { "code": "switch", "value": "brown" },
+                        { "code": "color", "value": "black" }
+                    ]
+                },
+                {
+                    "sku": "D-400",
+                    "name": "鼠标垫",
+                    "qty": 1,
+                    "price": 49
+                }
+            ],
+            "payments": [
+                { "id": "pay-1", "type": "card", "amount": 637 }
+            ],
+            "meta": {
+                "source": "mobile",
+                "flags": [true, null]
+            },
+            "invoice": {
+                "required": true,
+                "title": "张三"
+            }
         };
 
         const lStr = JSON.stringify(leftData, null, 2);
@@ -937,6 +1046,6 @@ export class CompareManager {
         this.updateAllLineNumbers();
         this.recordHistory('left', lStr);
         this.recordHistory('right', rStr);
-        this.app.layout.updateStatus('已加载机型比价示例数据');
+        this.app.layout.updateStatus('已加载复杂集合对比示例数据');
     }
 }

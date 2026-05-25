@@ -1,5 +1,6 @@
 import { TimestampTool } from './tools/TimestampTool.js';
 import { HexDecodeTool } from './tools/HexDecodeTool.js';
+import { ObjectIdGeneratorTool } from './tools/ObjectIdGeneratorTool.js';
 
 /**
  * 其他工具管理器
@@ -30,6 +31,9 @@ export class OtherToolsManager {
 
         // 注册16进制解码工具
         this.registerTool('hexdecode', new HexDecodeTool(this.app));
+
+        // 注册ObjectId生成工具
+        this.registerTool('objectid', new ObjectIdGeneratorTool(this.app));
 
         // 未来可以在这里添加更多工具
         // this.registerTool('base64', new Base64Tool(this.app));

@@ -279,6 +279,10 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M128,24a104,104,0,1,0,104,104A104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216ZM80,108a12,12,0,1,1,12,12A12,12,0,0,1,80,108Zm96,0a12,12,0,1,1-12-12A12,12,0,0,1,176,108Zm-1.08,48c-10.29,17.79-27.39,28-46.92,28s-36.63-10.2-46.92-28a8,8,0,1,1,13.84-8c7.47,12.91,19.21,20,33.08,20s25.61-7.1,33.08-20a8,8,0,1,1,13.84,8Z"></path></svg>
                             16进制解码
                         </button>
+                        <button class="tool-nav-item" data-tool="objectid">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200ZM176,88a48,48,0,0,1-96,0,8,8,0,0,1,16,0,32,32,0,0,0,64,0,8,8,0,0,1,16,0Zm-80,64a8,8,0,0,1,0-16h64a8,8,0,0,1,0,16Z"></path></svg>
+                            ObjectId生成
+                        </button>
                         <!-- Future tools placeholders -->
                         <!-- <button class="tool-nav-item" data-tool="base64">Base64 编解码</button> -->
                     </aside>
@@ -366,6 +370,37 @@
                                     </div>
                                     <div class="editor-wrapper">
                                         <textarea id="hexOutput" class="hex-editor" placeholder="结果将显示在此处..." readonly></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ObjectId Generator Tool -->
+                        <div class="tool-view" id="tool-objectid">
+                            <div class="panel" style="padding: 20px; max-width: 800px; margin: 0 auto;">
+                                <h3 style="margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">ObjectId 生成</h3>
+
+                                <div class="config-row" style="align-items: flex-end; gap: 16px; margin-bottom: 20px;">
+                                    <div class="config-group" style="flex: 1;">
+                                        <label>生成数量 (1-1000)</label>
+                                        <input type="number" id="objectIdCount" class="input-field" value="1" min="1" max="1000" placeholder="输入数量">
+                                    </div>
+                                    <div class="config-group" style="flex: 0 0 auto; display: flex; gap: 8px;">
+                                        <button class="tool-btn primary" id="generateObjectIdBtn">生成</button>
+                                        <button class="tool-btn" id="clearObjectIdBtn">清空</button>
+                                    </div>
+                                </div>
+
+                                <div class="panel" style="padding: 0; overflow: hidden;">
+                                    <div class="panel-toolbar">
+                                        <span class="panel-title">生成结果</span>
+                                        <div class="toolbar-right">
+                                            <span id="objectIdStats" style="font-size: 12px; color: var(--text-secondary); margin-right: 8px;"></span>
+                                            <button class="tool-btn" id="copyObjectIdBtn">复制全部</button>
+                                        </div>
+                                    </div>
+                                    <div class="editor-wrapper">
+                                        <textarea id="objectIdOutput" class="code-editor" placeholder="生成的 ObjectId 将显示在此处..." readonly style="min-height: 300px;"></textarea>
                                     </div>
                                 </div>
                             </div>

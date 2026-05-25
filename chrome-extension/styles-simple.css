@@ -591,6 +591,56 @@ button {
     border-left: 3px solid var(--warning);
 }
 
+.diff-pill {
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+}
+
+.diff-pill.added {
+    background-color: rgba(16, 185, 129, 0.16);
+    color: var(--success);
+}
+
+.diff-pill.removed {
+    background-color: rgba(239, 68, 68, 0.16);
+    color: var(--danger);
+}
+
+.diff-pill.modified {
+    background-color: rgba(245, 158, 11, 0.16);
+    color: var(--warning);
+}
+
+.diff-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.diff-summary-table th,
+.diff-summary-table td {
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.diff-summary-table code {
+    color: var(--primary);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+}
+
+.diff-summary-table pre {
+    font-family: var(--font-mono);
+    margin: 0;
+    max-width: 260px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 /* Editor Area Tweaks for Compare */
 .compare-panel .code-editor {
     /* Keep textarea in normal flex flow so it doesn't overlap the gutter */
