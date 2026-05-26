@@ -22,8 +22,6 @@ export class CompareManager {
             }
         });
 
-        document.getElementById('smartCompareBtn').addEventListener('click', () => this.smartCompareJSON());
-
         const beautifyLeftBtn = document.getElementById('beautifyLeft');
         const beautifyRightBtn = document.getElementById('beautifyRight');
         const minifyLeftBtn = document.getElementById('minifyLeft');
@@ -181,7 +179,6 @@ export class CompareManager {
             this.updateDiffHighlights(diff, leftFormatted, rightFormatted, leftObj, rightObj);
 
             if (!silent) {
-                this.showDiffSummary(diff);
                 this.app.layout.updateStatus(diff.length ? `对比完成：发现 ${diff.length} 处差异` : '对比完成：未发现差异');
             }
 
@@ -192,151 +189,6 @@ export class CompareManager {
             }
             this.clearComparison();
         }
-    }
-
-    async smartCompareJSON() {
-        const leftText = document.getElementById('leftJson').value.trim();
-        const rightText = document.getElementById('rightJson').value.trim();
-
-        if (!leftText || !rightText) {
-            this.app.layout.showError('对比失败', '左右两侧的 JSON 内容不能为空');
-            return;
-        }
-
-        const apiKey = localStorage.getItem('zhipu_api_key');
-        const zhipuModel = localStorage.getItem('zhipu_model') || 'glm-5.1';
-        if (!apiKey) {
-            this.app.layout.showError('未配置 API Key', '请点击右上角设置按钮配置智谱AI API Key');
-            if (this.app.layout.openSettings) {
-                this.app.layout.openSettings();
-            }
-            return;
-        }
-
-        const btn = document.getElementById('smartCompareBtn');
-        const originalHTML = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = `<svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 256 256"><path d="M232,128a104,104,0,0,1-20.8,61.95L192,170.82a88,88,0,0,0,0-85.64l19.2-19.13A104,104,0,0,1,232,128Z"></path></svg>`;
-        this.app.layout.updateStatus('正在调用智谱AI进行智能对比...');
-
-        try {
-            // 截断过长文本以防止超出 Token 限制 (简单策略)
-            const maxLen = 10000; 
-            const l = leftText.length > maxLen ? leftText.substring(0, maxLen) + '...(truncated)' : leftText;
-            const r = rightText.length > maxLen ? rightText.substring(0, maxLen) + '...(truncated)' : rightText;
-
-            const response = await fetch('https://open.bigmodel.cn/api/coding/paas/v4/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: zhipuModel,
-                    messages: [
-                        {
-                            "role": "system",
-                            "content": "你是一个数据对比专家。请分析两个JSON数据的语义差异。请使用 Markdown 表格展示差异，表格列依次为：字段路径 (Path)、变更类型 (Type)、左侧数据 (Original)、右侧数据 (New)、分析说明 (Description)。\n重要规则：\n1. 仅展示有差异的字段（修改、新增、删除），严禁展示任何未变更的数据。\n2. 字段路径必须保持原始 JSON Key，严禁翻译成中文。\n3. 变更类型包括：修改、新增、删除。\n4. 分析说明请使用中文。\n5. 如果两个JSON在语义上一致，请直接回答“两个 JSON 数据语义一致”。\n请直接输出表格，不要有多余的开头或结尾解释文字。"
-                        },
-                        {
-                            "role": "user",
-                            "content": `Left JSON:\n${l}\n\nRight JSON:\n${r}`
-                        }
-                    ],
-                    temperature: 0.1,
-                    top_p: 0.7,
-                    max_tokens: 4096
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error?.message || 'API 请求失败');
-            }
-
-            const data = await response.json();
-            const content = data.choices[0]?.message?.content;
-
-            if (content) {
-                const renderedHtml = this.renderMarkdownTable(content);
-                const htmlContent = `
-                    <div style="padding: 10px; line-height: 1.6;">
-                        <div style="font-size: 14px; color: var(--text-secondary); margin-bottom: 12px; font-weight: 500;">AI 差异分析报告：</div>
-                        <div class="markdown-body">
-                            ${renderedHtml}
-                        </div>
-                    </div>
-                `;
-                this.app.layout.showSidebar('智能对比结果', htmlContent);
-                this.app.layout.updateStatus('智能对比完成');
-                if (this.app.layout.showSuccess) {
-                    this.app.layout.showSuccess('智能对比完成', '已生成差异分析报告。');
-                }
-            } else {
-                 throw new Error('AI 未返回有效内容');
-            }
-
-        } catch (error) {
-            console.error('Smart compare failed', error);
-            this.app.layout.showError('智能对比失败', error.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalHTML;
-        }
-    }
-
-    /**
-     * 简单的 Markdown 表格渲染器
-     */
-    renderMarkdownTable(markdown) {
-        const lines = markdown.trim().split('\n');
-        if (lines.length < 2) return `<div style="white-space: pre-wrap;">${Utils.escapeHtml(markdown)}</div>`;
-
-        let tableHtml = '<table>';
-        let hasHeader = false;
-        let bodyStarted = false;
-
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine.startsWith('|')) {
-                // 如果不是表格行，按普通文本处理
-                if (trimmedLine) {
-                    tableHtml += `</table><p style="margin: 10px 0; font-size: 13px;">${Utils.escapeHtml(trimmedLine)}</p><table>`;
-                }
-                continue;
-            }
-
-            const cells = trimmedLine.split('|')
-                .filter((_, index, array) => index > 0 && index < array.length - 1)
-                .map(cell => cell.trim());
-
-            // 跳过分割线行 (---|---|---)
-            if (trimmedLine.includes('---') && !trimmedLine.match(/[a-zA-Z0-9]/)) {
-                continue;
-            }
-
-            if (!hasHeader) {
-                tableHtml += '<thead><tr>';
-                cells.forEach(cell => {
-                    tableHtml += `<th>${Utils.escapeHtml(cell)}</th>`;
-                });
-                tableHtml += '</tr></thead><tbody>';
-                hasHeader = true;
-                bodyStarted = true;
-            } else {
-                tableHtml += '<tr>';
-                cells.forEach(cell => {
-                    tableHtml += `<td>${Utils.escapeHtml(cell)}</td>`;
-                });
-                tableHtml += '</tr>';
-            }
-        }
-
-        if (bodyStarted) {
-            tableHtml += '</tbody>';
-        }
-        tableHtml += '</table>';
-        return tableHtml;
     }
 
     /**
@@ -756,52 +608,6 @@ export class CompareManager {
         const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
         if (text === undefined) return String(value);
         return text.length > 260 ? `${text.slice(0, 260)}...` : text;
-    }
-
-    showDiffSummary(differences) {
-        const counts = differences.reduce((result, diff) => {
-            result[diff.type] = (result[diff.type] || 0) + 1;
-            return result;
-        }, { added: 0, removed: 0, modified: 0 });
-
-        const rows = differences.slice(0, 200).map(diff => `
-            <tr>
-                <td><code>${Utils.escapeHtml(diff.path)}</code></td>
-                <td>${this.getDiffTypeLabel(diff.type)}</td>
-                <td><pre>${Utils.escapeHtml(this.formatValuePreview(diff.leftValue))}</pre></td>
-                <td><pre>${Utils.escapeHtml(this.formatValuePreview(diff.rightValue))}</pre></td>
-            </tr>
-        `).join('');
-
-        const omitted = differences.length > 200
-            ? `<p style="margin-top: 10px; color: var(--text-secondary);">仅展示前 200 条差异，其余 ${differences.length - 200} 条请结合左右高亮查看。</p>`
-            : '';
-
-        const htmlContent = `
-            <div style="padding: 10px; line-height: 1.5;">
-                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
-                    <span class="diff-pill added">新增 ${counts.added}</span>
-                    <span class="diff-pill removed">删除 ${counts.removed}</span>
-                    <span class="diff-pill modified">修改 ${counts.modified}</span>
-                </div>
-                ${differences.length ? `
-                    <table class="diff-summary-table">
-                        <thead>
-                            <tr>
-                                <th>路径</th>
-                                <th>类型</th>
-                                <th>左侧</th>
-                                <th>右侧</th>
-                            </tr>
-                        </thead>
-                        <tbody>${rows}</tbody>
-                    </table>
-                    ${omitted}
-                ` : '<p style="color: var(--text-secondary);">两个 JSON 内容一致。</p>'}
-            </div>
-        `;
-
-        this.app.layout.showSidebar('结构化对比结果', htmlContent);
     }
 
     updateCompareDisplay(textareaId, diffLines) {

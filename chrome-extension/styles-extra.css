@@ -341,6 +341,7 @@
     transition: opacity 0.2s;
     flex-shrink: 0; /* Prevent actions container from shrinking */
     white-space: nowrap; /* Prevent wrapping */
+    position: relative;
 }
 
 .note-card:hover .note-actions {
@@ -363,9 +364,92 @@
     color: var(--text-primary);
 }
 
+.note-color-wrapper {
+    position: relative;
+}
+
+.color-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(15, 23, 42, 0.18);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.note-color-menu {
+    position: absolute;
+    top: 28px;
+    right: 0;
+    width: 132px;
+    padding: 8px;
+    display: none;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    z-index: 2000;
+}
+
+.note-color-wrapper:hover .note-color-menu,
+.note-color-wrapper:focus-within .note-color-menu {
+    display: grid;
+}
+
+.note-color-swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid rgba(15, 23, 42, 0.14);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.note-color-swatch:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.note-color-swatch.active {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
+}
+
 .delete-btn:hover {
     color: var(--danger);
     background-color: rgba(239, 68, 68, 0.1);
+}
+
+.note-search-preview {
+    padding: 8px 12px;
+    background-color: var(--bg-input);
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+    max-height: 68px;
+    overflow: hidden;
+}
+
+.note-search-line {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.note-search-preview mark {
+    padding: 0 2px;
+    border-radius: 3px;
+    background-color: rgba(245, 158, 11, 0.28);
+    color: var(--text-primary);
+}
+
+.notes-search-empty {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 .note-body {

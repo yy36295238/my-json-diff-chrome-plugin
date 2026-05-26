@@ -111,14 +111,22 @@ class JSONToolApp {
         }
     }
 
-    clearAll() {
-        if (confirm('清除所有内容？')) {
-            document.getElementById('jsonEditor').value = '';
-            this.formatter.updatePreview('');
-            this.formatter.updateEditorInfo();
-            this.layout.hideErrorPanel();
-            this.layout.updateStatus('已清除');
+    async clearAll() {
+        const confirmed = await this.layout.confirm({
+            title: '清除内容',
+            message: '确定要清除当前编辑器中的所有内容吗？',
+            confirmText: '清除',
+            danger: true
+        });
+        if (!confirmed) {
+            return;
         }
+
+        document.getElementById('jsonEditor').value = '';
+        this.formatter.updatePreview('');
+        this.formatter.updateEditorInfo();
+        this.layout.hideErrorPanel();
+        this.layout.updateStatus('已清除');
     }
 }
 

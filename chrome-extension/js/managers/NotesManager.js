@@ -1,3 +1,5 @@
+import { Utils } from '../utils.js';
+
 /**
  * 便签卡片管理器 (Canvas Mode with Resizing & Colors & JSON Format & Multi-Undo)
  * 负责管理自由画布上的便签，支持拖拽、调整大小、轮询取色、JSON格式化及多级撤回
@@ -30,17 +32,19 @@ export class NotesManager {
         // Undo State
         this.deletedNotesStack = [];
         this.undoTimeout = null;
+        this.saveDebounceTimer = null;
+        this.SAVE_DEBOUNCE_MS = 400;
 
-        // 配色方案
+        // 配色方案：使用低饱和现代色板，避免大面积高亮色影响阅读。
         this.COLORS = [
-            '#FFF59D', // 柠檬黄
-            '#FFCC80', // 杏子橙
-            '#FFAB91', // 蜜桃红
-            '#F48FB1', // 樱花粉
-            '#CE93D8', // 香芋紫
-            '#90CAF9', // 天空蓝
-            '#80CBC4', // 薄荷绿
-            '#B0BEC5'  // 蓝灰色
+            '#FDE68A', // 麦穗黄
+            '#FED7AA', // 暖杏橙
+            '#FECACA', // 柔雾红
+            '#FBCFE8', // 淡玫粉
+            '#DDD6FE', // 云雾紫
+            '#BFDBFE', // 湖水蓝
+            '#A7F3D0', // 清透绿
+            '#CBD5E1'  // 石板灰
         ];
         this.lastColorIndex = 0; // 轮询颜色索引
     }
@@ -75,8 +79,14 @@ export class NotesManager {
         }
 
         if (clearNotesBtn) {
-            clearNotesBtn.addEventListener('click', () => {
-                if (confirm('确定要清空所有便签吗？此操作无法撤销。')) {
+            clearNotesBtn.addEventListener('click', async () => {
+                const confirmed = await this.app.layout.confirm({
+                    title: '清空便签',
+                    message: '确定要清空所有便签吗？清空后可在 15 秒内撤回。',
+                    confirmText: '清空',
+                    danger: true
+                });
+                if (confirmed) {
                     this.clearAllNotes();
                 }
             });
@@ -99,6 +109,7 @@ export class NotesManager {
         document.addEventListener('mousedown', (e) => this.onMouseDown(e));
         document.addEventListener('mousemove', (e) => this.onMouseMove(e));
         document.addEventListener('mouseup', (e) => this.onMouseUp(e));
+        window.addEventListener('beforeunload', () => this.flushPendingSave());
     }
 
     loadNotes() {
@@ -145,6 +156,23 @@ export class NotesManager {
         } catch (e) {
             console.error('保存便签失败', e);
         }
+    }
+
+    // 输入过程中延迟写入 localStorage，避免长内容便签每次按键都触发同步存储卡顿。
+    scheduleSaveNotes() {
+        if (this.saveDebounceTimer) clearTimeout(this.saveDebounceTimer);
+        this.saveDebounceTimer = setTimeout(() => {
+            this.saveDebounceTimer = null;
+            this.saveNotes();
+        }, this.SAVE_DEBOUNCE_MS);
+    }
+
+    // 页面关闭前补齐最后一次防抖保存，降低刚输入内容丢失的风险。
+    flushPendingSave() {
+        if (!this.saveDebounceTimer) return;
+        clearTimeout(this.saveDebounceTimer);
+        this.saveDebounceTimer = null;
+        this.saveNotes();
     }
 
     addNote() {
@@ -206,7 +234,7 @@ export class NotesManager {
         if (note) {
             note.content = content;
             note.updated = new Date().toISOString();
-            this.saveNotes();
+            this.scheduleSaveNotes();
             this.updateNoteStats(id, content);
         }
     }
@@ -228,7 +256,19 @@ export class NotesManager {
         if (note) {
             note.title = title || '无标题便签';
             note.updated = new Date().toISOString();
+            this.scheduleSaveNotes();
+        }
+    }
+
+    // 用户手动改色后立即保存并刷新当前搜索视图，保证颜色菜单状态同步。
+    updateNoteColor(id, color) {
+        if (!this.COLORS.includes(color)) return;
+        const note = this.notes.find(n => n.id === id);
+        if (note) {
+            note.color = color;
+            note.updated = new Date().toISOString();
             this.saveNotes();
+            this.render(this.getCurrentSearchText());
         }
     }
 
@@ -245,32 +285,45 @@ export class NotesManager {
         }
     }
 
-    clearNoteContent(id) {
-        if (confirm('确定要清空此便签内容吗？')) {
-            this.updateNoteContent(id, '');
-            const textarea = document.querySelector(`.note-card[data-id="${id}"] textarea`);
-            if (textarea) textarea.value = '';
-            if (this.app.layout.showToast) this.app.layout.showToast('便签内容已清空');
+    async clearNoteContent(id) {
+        const confirmed = await this.app.layout.confirm({
+            title: '清空便签内容',
+            message: '确定要清空此便签内容吗？',
+            confirmText: '清空',
+            danger: true
+        });
+        if (!confirmed) {
+            return;
         }
+
+        this.updateNoteContent(id, '');
+        const textarea = document.querySelector(`.note-card[data-id="${id}"] textarea`);
+        if (textarea) textarea.value = '';
+        if (this.app.layout.showToast) this.app.layout.showToast('便签内容已清空');
     }
 
     deleteNote(id) {
         const index = this.notes.findIndex(n => n.id === id);
         if (index === -1) return;
 
-        this.deletedNotesStack.push(this.notes[index]);
+        this.deletedNotesStack.push({
+            type: 'single',
+            notes: [this.notes[index]]
+        });
         this.notes.splice(index, 1);
         this.saveNotes();
-        this.render();
+        this.render(this.getCurrentSearchText());
         this.showUndoButton();
     }
     
     showUndoButton() {
         const btn = document.getElementById('undoNotesBtn');
         if (btn) {
-            const count = this.deletedNotesStack.length;
+            const lastEntry = this.deletedNotesStack[this.deletedNotesStack.length - 1];
+            const count = lastEntry?.notes?.length || this.deletedNotesStack.length;
+            const label = lastEntry?.type === 'bulk' ? `撤回清空 (${count})` : `撤回删除 (${this.deletedNotesStack.length})`;
             const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M232,128a8,8,0,0,1-8,8H72a8,8,0,0,1,0-16H224A8,8,0,0,1,232,128Zm-80-80a8,8,0,0,1,0,16H72a8,8,0,0,1,0-16ZM72,192H192a8,8,0,0,0,0-16H72a8,8,0,0,0,0,16ZM42.34,122.34l24-24a8,8,0,0,0-11.31-11.31l-32,32a8,8,0,0,0,0,11.31l32,32a8,8,0,0,0,11.31-11.31Z"></path></svg>`;
-            btn.innerHTML = `${iconSvg} 撤回删除 (${count})`;
+            btn.innerHTML = `${iconSvg} ${label}`;
             btn.style.display = 'flex';
         }
         
@@ -292,10 +345,10 @@ export class NotesManager {
     
     undoDelete() {
         if (this.deletedNotesStack.length === 0) return;
-        const noteToRestore = this.deletedNotesStack.pop();
-        this.notes.push(noteToRestore);
+        const entryToRestore = this.deletedNotesStack.pop();
+        this.notes.push(...entryToRestore.notes);
         this.saveNotes();
-        this.render();
+        this.render(this.getCurrentSearchText());
         
         if (this.deletedNotesStack.length > 0) {
             this.showUndoButton();
@@ -304,16 +357,23 @@ export class NotesManager {
         }
         
         if (this.app.layout.showToast) {
-            this.app.layout.showToast('已撤回删除');
+            this.app.layout.showToast(entryToRestore.type === 'bulk' ? '已撤回清空' : '已撤回删除');
         }
     }
 
     clearAllNotes() {
+        if (this.notes.length === 0) return;
+        // 清空属于高风险批量操作，先保存快照以便 15 秒内整体恢复。
+        this.deletedNotesStack.push({
+            type: 'bulk',
+            notes: this.notes.map(note => ({ ...note }))
+        });
         this.notes = [];
         this.saveNotes();
-        this.render();
+        this.render(this.getCurrentSearchText());
+        this.showUndoButton();
         if (this.app.layout.showToast) {
-            this.app.layout.showToast('便签已清空');
+            this.app.layout.showToast('便签已清空，可撤回');
         }
     }
 
@@ -369,26 +429,34 @@ export class NotesManager {
     }
 
     autoArrange() {
-        const COL_WIDTH = 340; 
-        const ROW_HEIGHT = 320; 
         const CANVAS_PADDING = 20;
+        const GAP = 20;
         const container = document.getElementById('notesCanvas');
         const containerWidth = container ? container.clientWidth : 1000;
-        
-        const cols = Math.max(1, Math.floor((containerWidth - CANVAS_PADDING * 2) / COL_WIDTH));
 
+        let x = CANVAS_PADDING;
+        let y = CANVAS_PADDING;
+        let rowHeight = 0;
+        const maxRight = Math.max(CANVAS_PADDING, containerWidth - CANVAS_PADDING);
+
+        // 按现有卡片尺寸做流式排布，避免整理时覆盖用户手动调整过的宽高。
         this.notes.forEach((note, index) => {
-            const col = index % cols;
-            const row = Math.floor(index / cols);
-            note.x = CANVAS_PADDING + col * COL_WIDTH;
-            note.y = CANVAS_PADDING + row * ROW_HEIGHT;
-            note.width = 320;
-            note.height = 300;
+            const width = note.width || 320;
+            const height = note.height || 300;
+            if (index > 0 && x + width > maxRight) {
+                x = CANVAS_PADDING;
+                y += rowHeight + GAP;
+                rowHeight = 0;
+            }
+            note.x = x;
+            note.y = y;
+            x += width + GAP;
+            rowHeight = Math.max(rowHeight, height);
         });
 
         this.saveNotes();
         this.render(document.getElementById('searchNotes').value.trim(), true);
-        if (this.app.layout.showToast) this.app.layout.showToast('整理完成 (已重置尺寸)');
+        if (this.app.layout.showToast) this.app.layout.showToast('整理完成（已保留卡片尺寸）');
     }
 
     // Interaction Logic
@@ -488,6 +556,7 @@ export class NotesManager {
     render(filterText = '', animate = false) {
         const container = document.getElementById('notesCanvas');
         if (!container) return;
+        const normalizedFilter = filterText.trim();
 
         if (animate) {
              const cards = container.querySelectorAll('.note-card');
@@ -506,12 +575,22 @@ export class NotesManager {
         }
 
         container.innerHTML = '';
-        const filteredNotes = filterText 
+        const filteredNotes = normalizedFilter 
             ? this.notes.filter(n => 
-                n.content.toLowerCase().includes(filterText.toLowerCase()) || 
-                (n.title && n.title.toLowerCase().includes(filterText.toLowerCase()))
+                (n.content || '').toLowerCase().includes(normalizedFilter.toLowerCase()) || 
+                (n.title && n.title.toLowerCase().includes(normalizedFilter.toLowerCase()))
               )
             : this.notes;
+
+        if (this.notes.length > 0 && filteredNotes.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state notes-search-empty">
+                    <div class="empty-icon">未找到</div>
+                    <div class="empty-text">没有匹配“${Utils.escapeHtml(normalizedFilter)}”的便签</div>
+                </div>
+            `;
+            return;
+        }
 
         filteredNotes.forEach(note => {
             const card = document.createElement('div');
@@ -527,14 +606,23 @@ export class NotesManager {
             const headerStyle = note.color ? `style="background-color: ${note.color};"` : '';
             const size = this.getByteSize(note.content || '');
             const statsText = `Len: ${note.content ? note.content.length : 0} | Size: ${this.formatSize(size)}`;
+            const searchPreview = normalizedFilter ? this.renderSearchPreview(note, normalizedFilter) : '';
 
             card.innerHTML = `
                 <div class="note-header" ${headerStyle}>
                     <div class="drag-handle" title="按住拖拽">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,112H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"></path></svg>
                     </div>
-                    <input type="text" class="note-title-input" value="${note.title || '无标题便签'}" placeholder="无标题">
+                    <input type="text" class="note-title-input" value="${Utils.escapeHtml(note.title || '无标题便签')}" placeholder="无标题">
                     <div class="note-actions">
+                        <div class="note-color-wrapper">
+                            <button class="icon-btn-sm color-btn" title="更换颜色">
+                                <span class="color-dot" style="background-color: ${note.color || this.COLORS[0]};"></span>
+                            </button>
+                            <div class="note-color-menu">
+                                ${this.renderColorSwatches(note)}
+                            </div>
+                        </div>
                         <button class="icon-btn-sm format-btn" title="格式化 JSON">
                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256"><path d="M72,64V208a8,8,0,0,1-16,0V64a8,8,0,0,1,16,0Zm128,0V208a8,8,0,0,1-16,0V64a8,8,0,0,1,16,0Z" opacity="0.2"></path><path d="M66.34,69.66,42.34,93.66a8,8,0,0,0,0,11.31l24,24A8,8,0,0,0,80,123.31V75.31A8,8,0,0,0,66.34,69.66Zm-2.34,40L53.66,99.31,64,89Zm125.66,80L213.66,166l-24-24A8,8,0,0,0,176,147.31v48a8,8,0,0,0,13.66,5.66ZM192,189.66V152l10.34,10.34ZM112,64a8,8,0,0,0-8,8V192a8,8,0,0,0,16,0V72A8,8,0,0,0,112,64Zm32,0a8,8,0,0,0-8,8V192a8,8,0,0,0,16,0V72A8,8,0,0,0,144,64Z"></path></svg>
                            <span style="font-size: 10px; font-weight: bold;">{ }</span>
@@ -553,8 +641,9 @@ export class NotesManager {
                         </button>
                     </div>
                 </div>
+                ${searchPreview}
                 <div class="note-body">
-                    <textarea class="note-editor" placeholder="在此输入内容...">${note.content}</textarea>
+                    <textarea class="note-editor" placeholder="在此输入内容...">${Utils.escapeHtml(note.content || '')}</textarea>
                 </div>
                 <div class="note-footer">
                     <span class="note-stats">${statsText}</span>
@@ -567,6 +656,12 @@ export class NotesManager {
             const contentInput = card.querySelector('.note-editor');
             titleInput.addEventListener('input', (e) => this.updateNoteTitle(note.id, e.target.value));
             contentInput.addEventListener('input', (e) => this.updateNoteContent(note.id, e.target.value));
+            card.querySelectorAll('.note-color-swatch').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.updateNoteColor(note.id, e.currentTarget.dataset.color);
+                });
+            });
             card.querySelector('.format-btn').addEventListener('click', (e) => { e.stopPropagation(); this.formatNoteJSON(note.id); });
             card.querySelector('.compress-btn').addEventListener('click', (e) => { e.stopPropagation(); this.compressNoteJSON(note.id); });
             card.querySelector('.copy-btn').addEventListener('click', (e) => { e.stopPropagation(); this.copyNote(note.id); });
@@ -584,5 +679,72 @@ export class NotesManager {
                 </div>
             `;
         }
+    }
+
+    getCurrentSearchText() {
+        const searchNotes = document.getElementById('searchNotes');
+        return searchNotes ? searchNotes.value.trim() : '';
+    }
+
+    renderColorSwatches(note) {
+        return this.COLORS.map(color => `
+            <button
+                class="note-color-swatch${note.color === color ? ' active' : ''}"
+                data-color="${color}"
+                style="background-color: ${color};"
+                title="切换为该颜色"
+            ></button>
+        `).join('');
+    }
+
+    renderSearchPreview(note, filterText) {
+        const title = note.title || '';
+        const content = note.content || '';
+        const titleMatch = title.toLowerCase().includes(filterText.toLowerCase());
+        const contentSnippet = this.getSearchSnippet(content, filterText);
+        const rows = [];
+
+        if (titleMatch) {
+            rows.push(`<div class="note-search-line">标题：${this.highlightText(title, filterText)}</div>`);
+        }
+        if (contentSnippet) {
+            rows.push(`<div class="note-search-line">内容：${this.highlightText(contentSnippet, filterText)}</div>`);
+        }
+
+        return rows.length ? `<div class="note-search-preview">${rows.join('')}</div>` : '';
+    }
+
+    getSearchSnippet(text, filterText) {
+        const lowerText = text.toLowerCase();
+        const lowerFilter = filterText.toLowerCase();
+        const matchIndex = lowerText.indexOf(lowerFilter);
+        if (matchIndex === -1) return '';
+
+        const start = Math.max(0, matchIndex - 40);
+        const end = Math.min(text.length, matchIndex + filterText.length + 80);
+        const prefix = start > 0 ? '...' : '';
+        const suffix = end < text.length ? '...' : '';
+        return `${prefix}${text.slice(start, end)}${suffix}`;
+    }
+
+    highlightText(text, filterText) {
+        if (!filterText) return Utils.escapeHtml(text);
+
+        // 先按原文切片再转义，避免搜索词包含 HTML 特殊字符时破坏高亮结果。
+        const lowerText = text.toLowerCase();
+        const lowerFilter = filterText.toLowerCase();
+        let cursor = 0;
+        let html = '';
+        let matchIndex = lowerText.indexOf(lowerFilter, cursor);
+
+        while (matchIndex !== -1) {
+            html += Utils.escapeHtml(text.slice(cursor, matchIndex));
+            html += `<mark>${Utils.escapeHtml(text.slice(matchIndex, matchIndex + filterText.length))}</mark>`;
+            cursor = matchIndex + filterText.length;
+            matchIndex = lowerText.indexOf(lowerFilter, cursor);
+        }
+
+        html += Utils.escapeHtml(text.slice(cursor));
+        return html;
     }
 }

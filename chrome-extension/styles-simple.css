@@ -591,56 +591,6 @@ button {
     border-left: 3px solid var(--warning);
 }
 
-.diff-pill {
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 4px 10px;
-}
-
-.diff-pill.added {
-    background-color: rgba(16, 185, 129, 0.16);
-    color: var(--success);
-}
-
-.diff-pill.removed {
-    background-color: rgba(239, 68, 68, 0.16);
-    color: var(--danger);
-}
-
-.diff-pill.modified {
-    background-color: rgba(245, 158, 11, 0.16);
-    color: var(--warning);
-}
-
-.diff-summary-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-
-.diff-summary-table th,
-.diff-summary-table td {
-    border-bottom: 1px solid var(--border-color);
-    padding: 8px;
-    text-align: left;
-    vertical-align: top;
-}
-
-.diff-summary-table code {
-    color: var(--primary);
-    font-family: var(--font-mono);
-    white-space: nowrap;
-}
-
-.diff-summary-table pre {
-    font-family: var(--font-mono);
-    margin: 0;
-    max-width: 260px;
-    white-space: pre-wrap;
-    word-break: break-word;
-}
-
 /* Editor Area Tweaks for Compare */
 .compare-panel .code-editor {
     /* Keep textarea in normal flex flow so it doesn't overlap the gutter */
@@ -981,7 +931,7 @@ select.select-field {
 
 .modal-dialog {
     background-color: var(--bg-surface);
-    width: 400px;
+    width: min(420px, calc(100vw - 32px));
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     overflow: hidden;
@@ -1013,8 +963,53 @@ select.select-field {
     gap: 12px;
 }
 
-.btn-text { color: var(--text-secondary); font-weight: 500; padding: 8px 16px; }
-.btn-primary { background-color: var(--primary); color: white; padding: 8px 20px; border-radius: var(--radius-sm); font-weight: 500; }
+.confirm-dialog-content {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+}
+
+.confirm-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background-color: var(--primary-light);
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 18px;
+}
+
+.confirm-icon.danger {
+    background-color: rgba(239, 68, 68, 0.12);
+    color: var(--danger);
+}
+
+.confirm-message {
+    color: var(--text-primary);
+    line-height: 1.6;
+    padding-top: 4px;
+    white-space: pre-wrap;
+}
+
+.btn-text,
+.btn-primary,
+.btn-danger {
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+}
+
+.btn-text { color: var(--text-secondary); }
+.btn-primary { background-color: var(--primary); color: white; }
+.btn-danger { background-color: var(--danger); color: white; }
+
+.btn-text:hover { background-color: var(--bg-hover); color: var(--text-primary); }
+.btn-primary:hover { filter: brightness(0.96); }
+.btn-danger:hover { filter: brightness(0.96); }
 
 /* Sidebar (Settings/History) */
 .sidebar-overlay {
@@ -1036,39 +1031,6 @@ select.select-field {
     display: flex;
     flex-direction: column;
     animation: slideLeft 0.3s ease;
-}
-
-/* Markdown Table Styles */
-.markdown-body table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 16px;
-    font-size: 13px;
-}
-
-.markdown-body th, .markdown-body td {
-    padding: 10px 12px;
-    border: 1px solid var(--border-color);
-    text-align: left;
-}
-
-.markdown-body th {
-    background-color: var(--bg-tertiary);
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.markdown-body td {
-    color: var(--text-secondary);
-    word-break: break-all;
-}
-
-.markdown-body tr:nth-child(even) {
-    background-color: var(--bg-input);
-}
-
-.markdown-body tr:hover {
-    background-color: var(--bg-hover);
 }
 
 @keyframes slideLeft {

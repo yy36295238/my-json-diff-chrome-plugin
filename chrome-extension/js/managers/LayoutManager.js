@@ -9,6 +9,7 @@ export class LayoutManager {
         this.splitPaneTitles = []; // Initialize titles
         this.maxSplitPanes = 5;
         this._errorTimeout = null; // Initialize error timeout
+        this._modalResolve = null;
     }
 
     init() {
@@ -19,8 +20,8 @@ export class LayoutManager {
         document.getElementById('themeToggle').addEventListener('click', () => this.app.toggleTheme());
         document.getElementById('settingsBtn').addEventListener('click', () => this.openSettings());
         document.getElementById('closeError').addEventListener('click', () => this.hideErrorPanel());
-        document.getElementById('closeModal').addEventListener('click', () => this.closeModal());
-        document.getElementById('modalCancel').addEventListener('click', () => this.closeModal());
+        document.getElementById('closeModal').addEventListener('click', () => this.closeModal(false));
+        document.getElementById('modalCancel').addEventListener('click', () => this.closeModal(false));
         document.getElementById('closeSidebar').addEventListener('click', () => this.closeSidebar());
 
         const addSplitBtn = document.getElementById('addSplitPane');
@@ -156,18 +157,71 @@ export class LayoutManager {
         document.getElementById('modalTitle').textContent = title;
         document.getElementById('modalBody').innerHTML = bodyHTML;
         document.getElementById('modal').style.display = 'flex';
-        
-        const confirmBtn = document.getElementById('modalConfirm');
-        const newBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
-        newBtn.addEventListener('click', () => {
+
+        const { confirmBtn, cancelBtn } = this.resetModalButtons();
+        cancelBtn.addEventListener('click', () => this.closeModal(false));
+        confirmBtn.addEventListener('click', () => {
             if (onConfirm) onConfirm();
-            this.closeModal();
+            this.closeModal(true);
         });
     }
 
-    closeModal() {
+    /**
+     * 展示统一确认弹窗，替代浏览器原生 confirm，保证所有高风险操作视觉一致。
+     */
+    confirm(options) {
+        const config = typeof options === 'string' ? { message: options } : options;
+        const {
+            title = '确认操作',
+            message = '',
+            confirmText = '确认',
+            cancelText = '取消',
+            danger = false
+        } = config || {};
+
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalBody').innerHTML = `
+            <div class="confirm-dialog-content">
+                <div class="confirm-icon${danger ? ' danger' : ''}">${danger ? '!' : '?'}</div>
+                <div class="confirm-message">${Utils.escapeHtml(message)}</div>
+            </div>
+        `;
+
+        const { confirmBtn, cancelBtn } = this.resetModalButtons({ confirmText, cancelText, danger });
+        document.getElementById('modal').style.display = 'flex';
+
+        return new Promise(resolve => {
+            this._modalResolve = resolve;
+            cancelBtn.addEventListener('click', () => this.closeModal(false));
+            confirmBtn.addEventListener('click', () => this.closeModal(true));
+        });
+    }
+
+    resetModalButtons(options = {}) {
+        const { confirmText = '确认', cancelText = '取消', danger = false } = options;
+        const confirmBtn = document.getElementById('modalConfirm');
+        const cancelBtn = document.getElementById('modalCancel');
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        const newCancelBtn = cancelBtn.cloneNode(true);
+
+        newConfirmBtn.textContent = confirmText;
+        newConfirmBtn.className = danger ? 'btn-danger' : 'btn-primary';
+        newCancelBtn.textContent = cancelText;
+        newCancelBtn.className = 'btn-text';
+
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+        return { confirmBtn: newConfirmBtn, cancelBtn: newCancelBtn };
+    }
+
+    closeModal(result = false) {
         document.getElementById('modal').style.display = 'none';
+        if (this._modalResolve) {
+            const resolve = this._modalResolve;
+            this._modalResolve = null;
+            resolve(result);
+        }
     }
 
         openSettings() {
@@ -511,9 +565,14 @@ export class LayoutManager {
     /**
      * 清空所有分隔栏的数据内容
      */
-    clearAllSplitPanes() {
-        // 确认操作
-        if (!confirm('确定要清空所有分隔栏的数据吗？此操作不可撤销。')) {
+    async clearAllSplitPanes() {
+        const confirmed = await this.confirm({
+            title: '清空分隔栏',
+            message: '确定要清空所有分隔栏的数据吗？此操作不可撤销。',
+            confirmText: '清空',
+            danger: true
+        });
+        if (!confirmed) {
             return;
         }
 
