@@ -10,6 +10,7 @@ export class LayoutManager {
         this.maxSplitPanes = 5;
         this._errorTimeout = null; // Initialize error timeout
         this._modalResolve = null;
+        this._splitSaveTimer = null; // 多窗格内容保存防抖
     }
 
     init() {
@@ -18,7 +19,6 @@ export class LayoutManager {
         });
 
         document.getElementById('themeToggle').addEventListener('click', () => this.app.toggleTheme());
-        document.getElementById('settingsBtn').addEventListener('click', () => this.openSettings());
         document.getElementById('closeError').addEventListener('click', () => this.hideErrorPanel());
         document.getElementById('closeModal').addEventListener('click', () => this.closeModal(false));
         document.getElementById('modalCancel').addEventListener('click', () => this.closeModal(false));
@@ -61,6 +61,41 @@ export class LayoutManager {
                     this.updatePaneTitle(index, target.value);
                 }
             });
+            // 粘贴后若整体为合法 JSON 则自动格式化该面板（非 JSON 静默跳过；内容过大跳过以免卡顿）
+            multiSplitContainer.addEventListener('paste', (e) => {
+                const target = e.target;
+                if (!target.classList.contains('multi-pane-textarea')) return;
+                setTimeout(() => {
+                    const val = target.value.trim();
+                    if (!val || val.length > 1024 * 1024) return;
+                    try { JSON.parse(val); } catch (err) { return; }
+                    this.formatPane(parseInt(target.dataset.index, 10));
+                }, 0);
+            });
+        }
+
+        // Esc 关闭模态框/侧栏，点击遮罩关闭
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            const modal = document.getElementById('modal');
+            if (modal && modal.style.display !== 'none') {
+                this.closeModal(false);
+                return;
+            }
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar && sidebar.style.display !== 'none') this.closeSidebar();
+        });
+        const modalOverlay = document.getElementById('modal');
+        if (modalOverlay) {
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) this.closeModal(false);
+            });
+        }
+        const sidebarOverlay = document.getElementById('sidebar');
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', (e) => {
+                if (e.target === sidebarOverlay) this.closeSidebar();
+            });
         }
 
         this.initMultiSplit();
@@ -84,7 +119,7 @@ export class LayoutManager {
     }
 
     getTabName(name) {
-        const map = { formatter: '格式化', compare: '对比', converter: '转换', split: '分隔栏', 'other-tools': '其他工具' };
+        const map = { formatter: '格式化', compare: '对比', converter: '转换', split: '多窗格', notes: '便签', 'other-tools': '其他工具' };
         return map[name] || name;
     }
 
@@ -94,49 +129,82 @@ export class LayoutManager {
     }
 
     showError(title, message) {
-        const panel = document.getElementById('errorPanel');
-        const content = document.getElementById('errorContent');
-        const icon = panel.querySelector('.error-icon');
-        
-        // Reset to error style
-        panel.style.borderLeftColor = 'var(--danger)';
-        if (icon) icon.textContent = '⚠️';
-
-        content.innerHTML = `<strong>${title}</strong><br><br>${message.replace(/\n/g, '<br>')}`;
-        panel.style.display = 'flex';
-        this.updateStatus(`错误: ${title}`);
-
-        // Automatically hide after 5 seconds
-        if (this._errorTimeout) {
-            clearTimeout(this._errorTimeout);
+        // 兼容单参数调用：showError('xxx') 时该参数作为正文
+        if (message === undefined || message === null) {
+            message = title;
+            title = '错误';
         }
-        this._errorTimeout = setTimeout(() => {
-            this.hideErrorPanel();
-            this._errorTimeout = null;
-        }, 5000); 
+        // 错误信息常包含用户输入（JSON 片段等），必须转义后再插入
+        this._showPanel({
+            title, message,
+            borderColor: 'var(--danger)',
+            icon: '⚠️',
+            statusPrefix: '错误',
+            duration: 8000 // 错误信息停留久一些，给用户时间阅读
+        });
     }
 
     showSuccess(title, message) {
+        if (message === undefined || message === null) {
+            message = title;
+            title = '成功';
+        }
+        this._showPanel({
+            title, message,
+            borderColor: 'var(--success)',
+            icon: '✅',
+            statusPrefix: '成功',
+            duration: 3000
+        });
+    }
+
+    _showPanel({ title, message, borderColor, icon, statusPrefix, duration }) {
         const panel = document.getElementById('errorPanel');
         const content = document.getElementById('errorContent');
-        const icon = panel.querySelector('.error-icon');
-        
-        // Set to success style
-        panel.style.borderLeftColor = 'var(--success)';
-        if (icon) icon.textContent = '✅';
+        if (!panel || !content) return;
+        const iconEl = panel.querySelector('.error-icon');
 
-        content.innerHTML = `<strong>${title}</strong><br><br>${message.replace(/\n/g, '<br>')}`;
+        panel.style.borderLeftColor = borderColor;
+        if (iconEl) iconEl.textContent = icon;
+
+        const safeTitle = Utils.escapeHtml(String(title));
+        const safeMessage = Utils.escapeHtml(String(message)).replace(/\n/g, '<br>');
+        content.innerHTML = `<strong>${safeTitle}</strong><br><br>${safeMessage}`;
         panel.style.display = 'flex';
-        this.updateStatus(`成功: ${title}`);
+        this.updateStatus(`${statusPrefix}: ${title}`);
 
-        // Automatically hide after 3 seconds
         if (this._errorTimeout) {
             clearTimeout(this._errorTimeout);
         }
         this._errorTimeout = setTimeout(() => {
             this.hideErrorPanel();
             this._errorTimeout = null;
-        }, 3000); 
+        }, duration);
+    }
+
+    /**
+     * 轻量级 toast 通知，支持堆叠显示，点击可立即关闭。
+     * type: 'success' | 'error' | 'warning' | 'info'
+     */
+    showToast(message, type = 'info', duration = 3000) {
+        const container = document.getElementById('notifications');
+        if (!container) {
+            this.updateStatus(String(message));
+            return;
+        }
+        const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.innerHTML = `<span class="toast-icon">${icons[type] || icons.info}</span><span class="toast-message">${Utils.escapeHtml(String(message))}</span>`;
+        toast.addEventListener('click', () => toast.remove());
+        container.appendChild(toast);
+
+        // 错误类提示停留更久
+        const finalDuration = type === 'error' ? Math.max(duration, 6000) : duration;
+        setTimeout(() => {
+            toast.classList.add('toast-leaving');
+            setTimeout(() => toast.remove(), 250);
+        }, finalDuration);
     }
 
     hideErrorPanel() {
@@ -224,55 +292,6 @@ export class LayoutManager {
         }
     }
 
-        openSettings() {
-        const apiKey = localStorage.getItem('zhipu_api_key') || '';
-        const zhipuModel = localStorage.getItem('zhipu_model') || 'glm-5.1';
-        const html = `
-            <div class="settings-form" style="padding: 10px;">
-                <div class="config-group">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">智谱AI API Key</label>
-                    <input type="password" id="zhipuApiKey" class="input-field" value="${apiKey}" placeholder="请输入 API Key" style="width: 100%;">
-                    <p class="help-text" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
-                        用于智能修复 JSON 功能。请访问 <a href="https://open.bigmodel.cn/" target="_blank" style="color: var(--primary-color);">智谱AI开放平台</a> 获取。
-                        <br>API Key 仅保存在本地浏览器中。
-                    </p>
-                </div>
-                <div class="config-group" style="margin-top: 15px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">智谱AI 模型名称</label>
-                    <input type="text" id="zhipuModel" class="input-field" value="${zhipuModel}" placeholder="例如: glm-5.1" style="width: 100%;">
-                    <p class="help-text" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
-                        默认为 glm-5.1。如果需要更高精度，可填入其他模型名称（如 glm-4）。
-                    </p>
-                </div>
-                <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
-                    <button class="tool-btn primary" id="saveSettingsBtn">保存设置</button>
-                </div>
-            </div>
-        `;
-
-        this.showSidebar('设置', html);
-
-        document.getElementById('saveSettingsBtn').addEventListener('click', () => {
-            const key = document.getElementById('zhipuApiKey').value.trim();
-            const model = document.getElementById('zhipuModel').value.trim();
-            
-            if (key) {
-                localStorage.setItem('zhipu_api_key', key);
-            } else {
-                localStorage.removeItem('zhipu_api_key');
-            }
-
-            if (model) {
-                localStorage.setItem('zhipu_model', model);
-            } else {
-                localStorage.removeItem('zhipu_model');
-            }
-
-            this.updateStatus('设置已保存');
-            this.closeSidebar();
-        });
-    }
-
     // Multi Split Logic
     initMultiSplit() {
         try {
@@ -304,6 +323,15 @@ export class LayoutManager {
         const layout = document.getElementById('formatterLayout');
         const leftPanel = layout.querySelector('.editor-panel');
         const rightPanel = layout.querySelector('.preview-panel');
+
+        // 恢复上次拖拽的分栏比例
+        try {
+            const saved = JSON.parse(localStorage.getItem('json-tool-formatter-split') || 'null');
+            if (saved && saved.left > 0 && saved.right > 0) {
+                leftPanel.style.flex = `${saved.left} 1 0%`;
+                rightPanel.style.flex = `${saved.right} 1 0%`;
+            }
+        } catch (e) { /* 忽略损坏的存储数据 */ }
 
         let isDragging = false;
         let startX, startLeftWidth, startRightWidth;
@@ -355,6 +383,14 @@ export class LayoutManager {
                 resizer.classList.remove('dragging');
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
+
+                // 持久化分栏比例
+                try {
+                    localStorage.setItem('json-tool-formatter-split', JSON.stringify({
+                        left: leftPanel.getBoundingClientRect().width,
+                        right: rightPanel.getBoundingClientRect().width
+                    }));
+                } catch (e) { console.warn('保存分栏比例失败', e); }
             }
         });
     }
@@ -494,29 +530,51 @@ export class LayoutManager {
     addSplitPane() {
         if (this.splitPaneWidths.length >= this.maxSplitPanes) return;
         const n = this.splitPaneWidths.length + 1;
-        this.splitPaneWidths = Array(n).fill(1/n);
+        // 保留用户已拖好的比例：原有面板整体按比例压缩，给新面板让出 1/n
+        const scale = (n - 1) / n;
+        this.splitPaneWidths = this.splitPaneWidths.map(w => w * scale);
+        this.splitPaneWidths.push(1 / n);
         this.splitPaneContents.push('');
         this.splitPaneTitles.push(`面板 ${n}`);
         this.renderMultiSplit();
     }
 
-    removeSplitPane(index) {
+    async removeSplitPane(index) {
         if (this.splitPaneWidths.length <= 1) return;
+        // 面板有内容时需确认，避免误删不可恢复
+        if ((this.splitPaneContents[index] || '').trim()) {
+            const confirmed = await this.confirm({
+                title: '删除面板',
+                message: `「${this.splitPaneTitles[index] || `面板 ${index + 1}`}」中有内容，删除后无法恢复，确定删除吗？`,
+                confirmText: '删除',
+                danger: true
+            });
+            if (!confirmed) return;
+        }
+        const removed = this.splitPaneWidths[index];
         this.splitPaneContents.splice(index, 1);
         this.splitPaneTitles.splice(index, 1);
-        const n = this.splitPaneWidths.length - 1;
-        this.splitPaneWidths = Array(n).fill(1/n);
+        this.splitPaneWidths.splice(index, 1);
+        // 被删面板的宽度按比例分配给剩余面板，保留原有布局比例
+        const total = this.splitPaneWidths.reduce((s, w) => s + w, 0) || 1;
+        this.splitPaneWidths = this.splitPaneWidths.map(w => w + removed * (w / total));
         this.renderMultiSplit();
     }
 
     updatePaneContent(index, value) {
         this.splitPaneContents[index] = value;
-        this.saveSplitLayout();
+        this.scheduleSaveSplitLayout();
     }
 
     updatePaneTitle(index, value) {
         this.splitPaneTitles[index] = value;
-        this.saveSplitLayout();
+        this.scheduleSaveSplitLayout();
+    }
+
+    // 输入防抖：内容编辑高频触发时合并 localStorage 写入
+    scheduleSaveSplitLayout() {
+        clearTimeout(this._splitSaveTimer);
+        this._splitSaveTimer = setTimeout(() => this.saveSplitLayout(), 400);
     }
 
     formatPane(index) {

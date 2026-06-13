@@ -9,16 +9,21 @@ export const Utils = {
             .replace(/'/g, "&#039;");
     },
 
+    // 转义 key 以便嵌入 JSONPath 单引号字符串 $['...']：
+    // 先转义反斜杠再转义单引号，保证与 getValueByPath 的解析互逆
     escapePath(path) {
-        return path.replace(/'/g, "'\'");
+        return path.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
     },
 
     formatBytes(bytes) {
         if (bytes === 0) return '0B';
+        const negative = bytes < 0;
+        const abs = Math.abs(bytes);
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + sizes[i];
+        // 钳制单位下标：小于 1 字节时停在 B，超过最大单位时停在最后一个
+        const i = Math.min(Math.max(Math.floor(Math.log(abs) / Math.log(k)), 0), sizes.length - 1);
+        return (negative ? '-' : '') + parseFloat((abs / Math.pow(k, i)).toFixed(2)) + sizes[i];
     },
 
     capitalize(str) {
@@ -69,17 +74,18 @@ export const Utils = {
             path = path.slice(1);
         }
 
-        // Regex to match segments: .key OR ['key'] OR [index]
+        // Regex to match segments: .key OR ['key'] OR ["key"] OR [index]
+        // 单引号段支持 \' 与 \\ 转义（与 escapePath 配套）
         const segments = [];
-        const regex = /\.([a-zA-Z_$][a-zA-Z0-9_$]*)|\[(?:'([^']*)'|"([^"]*)")\]|\[(\d+)\]/g;
-        
+        const regex = /\.([a-zA-Z_$][a-zA-Z0-9_$]*)|\['((?:\\.|[^'\\])*)'\]|\["([^"]*)"\]|\[(\d+)\]/g;
+
         let match;
         while ((match = regex.exec(path)) !== null) {
             if (match[1]) {
                 segments.push(match[1]); // .key
-            } else if (match[2]) {
-                segments.push(match[2]); // ['key']
-            } else if (match[3]) {
+            } else if (match[2] !== undefined) {
+                segments.push(match[2].replace(/\\(.)/g, '$1')); // ['key']，还原转义
+            } else if (match[3] !== undefined) {
                 segments.push(match[3]); // ["key"]
             } else if (match[4]) {
                 segments.push(parseInt(match[4], 10)); // [index]
@@ -96,12 +102,14 @@ export const Utils = {
 
     sortDeep(obj) {
         if (Array.isArray(obj)) {
-            // Deep sort items first
-            const sortedItems = obj.map(item => this.sortDeep(item));
-            // Then sort the array itself based on string representation
-            return sortedItems.sort((a, b) => {
-                return JSON.stringify(a).localeCompare(JSON.stringify(b));
+            // 先一次性为每个元素算好序列化 key 再排序（decorate-sort-undecorate），
+            // 避免比较器中重复执行 O(n log n) 次完整序列化
+            const decorated = obj.map(item => {
+                const sorted = this.sortDeep(item);
+                return { sorted, key: JSON.stringify(sorted) ?? '' };
             });
+            decorated.sort((a, b) => a.key.localeCompare(b.key));
+            return decorated.map(d => d.sorted);
         } else if (typeof obj === 'object' && obj !== null) {
             const sortedObj = {};
             Object.keys(obj).sort().forEach(key => {

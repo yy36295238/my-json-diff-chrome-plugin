@@ -1,14 +1,50 @@
 import { Utils } from '../utils.js';
 
 export class CompareManager {
+    // 超过该大小（约 200KB，按字符数近似）的单条内容不进入持久化历史
+    static MAX_PERSIST_ENTRY_SIZE = 200 * 1024;
+    // 左右两侧历史上限
+    static MAX_HISTORY = 50;
+
     constructor(app) {
         this.app = app;
-        this.historyLeft = [];
+        // 内存内完整历史（可能包含超大条目，仅持久化时过滤）
+        this._historyLeft = [];
         this.historyLeftIndex = -1;
-        this.historyRight = [];
+        this._historyRight = [];
         this.historyRightIndex = -1;
-        this._suppressHistory = false;
+        // recordHistory 的防抖定时器（500ms）
         this._compareDebounceTimer = null;
+        // 防抖期间各侧待提交的内容（null 表示无待提交）
+        this._pendingHistory = { left: null, right: null };
+        // 最后获得焦点/输入的一侧，undo/redo 只作用于该侧
+        this._activeSide = 'left';
+        // 各侧初始内容，作为历史首条，保证能回退到第一次编辑前的状态
+        this._initialContent = { left: '', right: '' };
+    }
+
+    /**
+     * 对外暴露的历史（供 app.saveToLocalStorage 持久化）：过滤掉超大条目。
+     * 超大条目仍保留在内存内历史中，可参与 undo/redo。
+     */
+    get historyLeft() {
+        return this._historyLeft.filter(item => !this._isOversizedEntry(item));
+    }
+
+    set historyLeft(list) {
+        this._historyLeft = Array.isArray(list) ? list.slice() : [];
+    }
+
+    get historyRight() {
+        return this._historyRight.filter(item => !this._isOversizedEntry(item));
+    }
+
+    set historyRight(list) {
+        this._historyRight = Array.isArray(list) ? list.slice() : [];
+    }
+
+    _isOversizedEntry(content) {
+        return typeof content === 'string' && content.length > CompareManager.MAX_PERSIST_ENTRY_SIZE;
     }
 
     init() {
@@ -57,7 +93,15 @@ export class CompareManager {
         const leftLines = document.getElementById('leftJsonLines');
         const rightLines = document.getElementById('rightJsonLines');
 
+        // 记录初始内容，作为历史首条的回退基准
+        this._initialContent = { left: leftArea.value, right: rightArea.value };
+
+        // 跟踪最后获得焦点/输入的一侧，undo/redo 只作用于该侧
+        leftArea.addEventListener('focus', () => { this._activeSide = 'left'; });
+        rightArea.addEventListener('focus', () => { this._activeSide = 'right'; });
+
         leftArea.addEventListener('input', () => {
+            this._activeSide = 'left';
             this.recordHistory('left', leftArea.value);
             this.updateLineNumbers('left', leftArea, leftLines);
             // 清除对比高亮显示，因为数据已改变
@@ -65,11 +109,26 @@ export class CompareManager {
         });
 
         rightArea.addEventListener('input', () => {
+            this._activeSide = 'right';
             this.recordHistory('right', rightArea.value);
             this.updateLineNumbers('right', rightArea, rightLines);
             // 清除对比高亮显示，因为数据已改变
             this.clearComparison();
         });
+
+        // 粘贴后若整体为合法 JSON 则自动美化（非 JSON 静默跳过；内容过大跳过以免卡顿）
+        const autoFormatOnPaste = (side, area) => {
+            area.addEventListener('paste', () => {
+                setTimeout(() => {
+                    const val = area.value.trim();
+                    if (!val || val.length > 1024 * 1024) return;
+                    try { JSON.parse(val); } catch (e) { return; }
+                    this.beautifySide(side);
+                }, 0);
+            });
+        };
+        autoFormatOnPaste('left', leftArea);
+        autoFormatOnPaste('right', rightArea);
 
         leftArea.addEventListener('scroll', () => { if (leftLines) leftLines.scrollTop = leftArea.scrollTop; });
         rightArea.addEventListener('scroll', () => { if (rightLines) rightLines.scrollTop = rightArea.scrollTop; });
@@ -96,7 +155,11 @@ export class CompareManager {
             const area = document.getElementById(id);
             const raw = area.value;
             if (!raw.trim()) return;
-            const parsed = Utils.deepParseJSON(JSON.parse(raw));
+            // 仅在勾选"递归解析嵌套JSON字符串"时才深度解析
+            let parsed = JSON.parse(raw);
+            if (document.getElementById('deepParseToggle')?.checked) {
+                parsed = Utils.deepParseJSON(parsed);
+            }
             const pretty = JSON.stringify(parsed, null, 2);
             area.value = pretty;
             this.updateLineNumbers(side, area, document.getElementById(`${id}Lines`));
@@ -114,8 +177,11 @@ export class CompareManager {
             const area = document.getElementById(id);
             const raw = area.value;
             if (!raw.trim()) return;
-            // Parse and deep parse to handle embedded JSON strings if any, then minify
-            const parsed = Utils.deepParseJSON(JSON.parse(raw));
+            // 仅在勾选"递归解析嵌套JSON字符串"时才深度解析，再压缩
+            let parsed = JSON.parse(raw);
+            if (document.getElementById('deepParseToggle')?.checked) {
+                parsed = Utils.deepParseJSON(parsed);
+            }
             const minified = JSON.stringify(parsed);
             area.value = minified;
             this.updateLineNumbers(side, area, document.getElementById(`${id}Lines`));
@@ -129,15 +195,23 @@ export class CompareManager {
 
     compareJSON(options = {}) {
         const { silent = false } = options;
-        const leftText = document.getElementById('leftJson').value;
-        const rightText = document.getElementById('rightJson').value;
-        const ignoreOrder = document.getElementById('ignoreArrayOrder') ? document.getElementById('ignoreArrayOrder').checked : false;
+        const leftArea = document.getElementById('leftJson');
+        const rightArea = document.getElementById('rightJson');
+        if (!leftArea || !rightArea) return;
+
+        const leftText = leftArea.value;
+        const rightText = rightArea.value;
+        const ignoreOrder = document.getElementById('ignoreArrayOrder')?.checked || false;
+        // 递归解析嵌套 JSON 字符串：仅在用户显式勾选时执行
+        const deepParse = document.getElementById('deepParseToggle')?.checked || false;
 
         this.clearComparison();
 
         if (!leftText.trim() && !rightText.trim()) {
             this.clearLineNumbers();
-            this.app.layout.updateStatus('对比完成：内容为空');
+            if (!silent) {
+                this.app.layout.updateStatus('两侧内容均为空，请先输入需要对比的 JSON');
+            }
             return;
         }
 
@@ -147,8 +221,10 @@ export class CompareManager {
         try {
             if (leftText.trim()) {
                 try {
-                    // Use deepParseJSON to handle complex formats (nested JSON strings)
-                    leftObj = Utils.deepParseJSON(JSON.parse(leftText));
+                    leftObj = JSON.parse(leftText);
+                    if (deepParse) {
+                        leftObj = Utils.deepParseJSON(leftObj);
+                    }
                     if (ignoreOrder) {
                         leftObj = Utils.sortDeep(leftObj);
                     }
@@ -159,7 +235,10 @@ export class CompareManager {
             }
             if (rightText.trim()) {
                 try {
-                    rightObj = Utils.deepParseJSON(JSON.parse(rightText));
+                    rightObj = JSON.parse(rightText);
+                    if (deepParse) {
+                        rightObj = Utils.deepParseJSON(rightObj);
+                    }
                     if (ignoreOrder) {
                         rightObj = Utils.sortDeep(rightObj);
                     }
@@ -169,11 +248,24 @@ export class CompareManager {
                 }
             }
 
-            document.getElementById('leftJson').value = leftFormatted;
-            document.getElementById('rightJson').value = rightFormatted;
+            // 覆写输入框前，先把原始输入立即记入历史（绕过防抖），保证可以 undo 回到对比前的原文
+            this.recordHistory('left', leftText, { immediate: true });
+            this.recordHistory('right', rightText, { immediate: true });
+
+            leftArea.value = leftFormatted;
+            rightArea.value = rightFormatted;
+
+            // 规范化后的结果也立即入历史，使一次 undo 即可回到原文
+            this.recordHistory('left', leftFormatted, { immediate: true });
+            this.recordHistory('right', rightFormatted, { immediate: true });
+
             this.updateAllLineNumbers();
 
-            if (!leftFormatted && !rightFormatted) return;
+            // 一侧为空：另一侧整体视为新增/删除，不再把空侧当 null 参与 diff
+            if (!leftText.trim() || !rightText.trim()) {
+                this.renderSingleSideDiff(leftFormatted, rightFormatted, silent);
+                return;
+            }
 
             const diff = this.calculateStructuralDiff(leftObj, rightObj);
             this.updateDiffHighlights(diff, leftFormatted, rightFormatted, leftObj, rightObj);
@@ -188,6 +280,26 @@ export class CompareManager {
                 this.app.layout.updateStatus('对比失败：JSON 格式错误');
             }
             this.clearComparison();
+        }
+    }
+
+    /**
+     * 一侧为空时的渲染：非空侧整体高亮为新增（左空）或删除（右空），并给出对应统计摘要。
+     */
+    renderSingleSideDiff(leftFormatted, rightFormatted, silent) {
+        const isLeftEmpty = !leftFormatted;
+        const sideId = isLeftEmpty ? 'rightJson' : 'leftJson';
+        const formatted = isLeftEmpty ? rightFormatted : leftFormatted;
+        const type = isLeftEmpty ? 'added' : 'removed';
+
+        const lines = formatted.split('\n');
+        const diffLines = lines.map((_, index) => ({ type, lineNumber: index + 1 }));
+        this.updateCompareDisplay(sideId, diffLines);
+
+        if (!silent) {
+            this.app.layout.updateStatus(isLeftEmpty
+                ? `对比完成：左侧为空，右侧 ${lines.length} 行均为新增`
+                : `对比完成：右侧为空，左侧 ${lines.length} 行均为删除`);
         }
     }
 
@@ -323,6 +435,8 @@ export class CompareManager {
         const similarityCandidates = [];
         Array.from(unmatchedLeft).forEach(i => {
             Array.from(unmatchedRight).forEach(j => {
+                // 身份字段冲突的元素对已判定为不同记录，不参与相似度兜底
+                if (this.hasConflictingIdentity(leftArray[i], rightArray[j])) return;
                 const similarity = this.calculateSimilarity(leftArray[i], rightArray[j]);
                 if (similarity >= 0.55) {
                     similarityCandidates.push({ leftIndex: i, rightIndex: j, score: similarity, reason: 'similarity' });
@@ -430,6 +544,8 @@ export class CompareManager {
 
     /**
      * 从常见唯一字段判断两个数组对象是否代表同一条业务记录。
+     * 两侧都存在某身份字段时：值相等返回高分；值不相等立刻返回 0（判定为不同记录）。
+     * 两侧都没有任何身份字段时返回 0，由相似度匹配兜底。
      */
     calculateIdentityScore(leftItem, rightItem) {
         if (this.getJsonKind(leftItem) !== 'object' || this.getJsonKind(rightItem) !== 'object') return 0;
@@ -438,14 +554,34 @@ export class CompareManager {
         for (const idField of idFields) {
             if (!Object.prototype.hasOwnProperty.call(leftItem, idField)) continue;
             if (!Object.prototype.hasOwnProperty.call(rightItem, idField)) continue;
-            if (leftItem[idField] !== null && leftItem[idField] === rightItem[idField]) return 0.98;
+            // 双方都为 null 视为无效标识，继续检查下一个字段
+            if (leftItem[idField] === null && rightItem[idField] === null) continue;
+            // 身份字段值不相等 → 判定为不同记录，立即返回 0
+            return leftItem[idField] === rightItem[idField] ? 0.98 : 0;
         }
 
         return 0;
     }
 
     getIdentityFields() {
-        return ['id', '_id', 'key', 'code', 'uuid', 'uid', 'name', 'slug', 'sku'];
+        return ['id', '_id', 'uuid', 'uid', 'key', 'code', 'sku'];
+    }
+
+    /**
+     * 判断两个对象是否存在"身份字段冲突"（双方都有同名身份字段但值不同）。
+     * 冲突的元素对不参与相似度兜底匹配，避免误配对。
+     */
+    hasConflictingIdentity(leftItem, rightItem) {
+        if (this.getJsonKind(leftItem) !== 'object' || this.getJsonKind(rightItem) !== 'object') return false;
+
+        for (const idField of this.getIdentityFields()) {
+            if (!Object.prototype.hasOwnProperty.call(leftItem, idField)) continue;
+            if (!Object.prototype.hasOwnProperty.call(rightItem, idField)) continue;
+            if (leftItem[idField] === null && rightItem[idField] === null) continue;
+            return leftItem[idField] !== rightItem[idField];
+        }
+
+        return false;
     }
 
     hasIdentityField(value) {
@@ -569,15 +705,19 @@ export class CompareManager {
     }
 
     /**
-     * 查找路径对应的行号，找不到精确路径时回退到最近父节点。
+     * 查找路径对应的行号。找不到精确路径时回退到最近父节点，
+     * 但只取父节点的首行，避免整块区间高亮造成视觉误报。
      */
     findLinesForPath(pathToLines, targetPathTokens) {
-        for (let length = targetPathTokens.length; length >= 0; length--) {
-            const key = this.pathKey(targetPathTokens.slice(0, length));
-            if (pathToLines[key]) return pathToLines[key];
+        const exact = pathToLines[this.pathKey(targetPathTokens)];
+        if (exact) return exact;
+
+        for (let length = targetPathTokens.length - 1; length >= 0; length--) {
+            const lines = pathToLines[this.pathKey(targetPathTokens.slice(0, length))];
+            if (lines && lines.length) return [Math.min(...lines)];
         }
 
-        return pathToLines[this.pathKey([])] || [];
+        return [];
     }
 
     pathKey(pathTokens) {
@@ -628,7 +768,7 @@ export class CompareManager {
         const gutterWidth = gutter ? gutter.offsetWidth : 0;
 
         const style = getComputedStyle(textarea);
-        const lineHeight = Number.parseFloat(style.lineHeight) || 22;
+        const lineHeight = this.resolveLineHeight(textarea, style);
         const paddingTop = Number.parseFloat(style.paddingTop) || 0;
         const paddingRight = Number.parseFloat(style.paddingRight) || 0;
         const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
@@ -674,6 +814,43 @@ export class CompareManager {
         textarea.addEventListener('scroll', scrollHandler);
     }
 
+    /**
+     * 解析高亮定位所需的行高。computed lineHeight 为 'normal' 等不可解析值时，
+     * 用一个临时单行元素（复制 textarea 的字体样式）实测行高，避免写死像素导致错位。
+     */
+    resolveLineHeight(textarea, style) {
+        const parsed = Number.parseFloat(style.lineHeight);
+        if (Number.isFinite(parsed) && parsed > 0) return parsed;
+
+        try {
+            const probe = document.createElement('div');
+            probe.textContent = 'M';
+            probe.style.position = 'absolute';
+            probe.style.visibility = 'hidden';
+            probe.style.whiteSpace = 'pre';
+            probe.style.padding = '0';
+            probe.style.border = '0';
+            probe.style.margin = '0';
+            probe.style.fontFamily = style.fontFamily;
+            probe.style.fontSize = style.fontSize;
+            probe.style.fontWeight = style.fontWeight;
+            probe.style.fontStyle = style.fontStyle;
+            probe.style.letterSpacing = style.letterSpacing;
+            probe.style.lineHeight = style.lineHeight;
+
+            const host = textarea.parentElement || document.body;
+            host.appendChild(probe);
+            const measured = probe.offsetHeight;
+            probe.remove();
+            if (measured > 0) return measured;
+        } catch (e) {
+            // 实测失败时走下方字体大小估算
+        }
+
+        const fontSize = Number.parseFloat(style.fontSize);
+        return Number.isFinite(fontSize) && fontSize > 0 ? Math.round(fontSize * 1.2) : 22;
+    }
+
     clearComparison() {
         ['leftJson', 'rightJson'].forEach(id => {
             const el = document.getElementById(id);
@@ -697,53 +874,107 @@ export class CompareManager {
         if (rg) rg.innerHTML = '';
     }
 
-    recordHistory(side, content) {
-        if (this._suppressHistory) return;
-        const max = 100;
-        if (side === 'left') {
-            if (this.historyLeft.length === 0 || this.historyLeft[this.historyLeft.length - 1] !== content) {
-                this.historyLeft = this.historyLeft.slice(0, this.historyLeftIndex + 1);
-                this.historyLeft.push(content);
-                if (this.historyLeft.length > max) this.historyLeft = this.historyLeft.slice(-max);
-                this.historyLeftIndex = this.historyLeft.length - 1;
+    /**
+     * 记录历史。默认 500ms 防抖（避免每键击触发全量 localStorage 写入）；
+     * immediate 为 true 时绕过防抖立即记录（程序化覆写场景，如对比前的快照）。
+     */
+    recordHistory(side, content, options = {}) {
+        const { immediate = false } = options;
+
+        if (immediate) {
+            // 先提交防抖期间的待记录内容，保证历史顺序正确
+            this.flushHistory();
+            if (this.commitHistory(side, content)) {
                 this.app.saveToLocalStorage();
             }
-        } else {
-            if (this.historyRight.length === 0 || this.historyRight[this.historyRight.length - 1] !== content) {
-                this.historyRight = this.historyRight.slice(0, this.historyRightIndex + 1);
-                this.historyRight.push(content);
-                if (this.historyRight.length > max) this.historyRight = this.historyRight.slice(-max);
-                this.historyRightIndex = this.historyRight.length - 1;
-                this.app.saveToLocalStorage();
+            return;
+        }
+
+        this._pendingHistory[side] = content;
+        if (this._compareDebounceTimer) clearTimeout(this._compareDebounceTimer);
+        this._compareDebounceTimer = setTimeout(() => this.flushHistory(), 500);
+    }
+
+    /**
+     * 提交防抖期间累积的待记录内容。
+     */
+    flushHistory() {
+        if (this._compareDebounceTimer) {
+            clearTimeout(this._compareDebounceTimer);
+            this._compareDebounceTimer = null;
+        }
+
+        let changed = false;
+        ['left', 'right'].forEach(side => {
+            const content = this._pendingHistory[side];
+            if (content === null) return;
+            this._pendingHistory[side] = null;
+            if (this.commitHistory(side, content)) changed = true;
+        });
+
+        if (changed) this.app.saveToLocalStorage();
+    }
+
+    /**
+     * 把一条内容写入指定侧的内存内历史。返回是否产生了变更。
+     */
+    commitHistory(side, content) {
+        const history = side === 'left' ? this._historyLeft : this._historyRight;
+        const indexKey = side === 'left' ? 'historyLeftIndex' : 'historyRightIndex';
+
+        // 历史首条保留初始内容，保证可以回退到第一次编辑前的状态
+        if (history.length === 0) {
+            const initial = this._initialContent ? (this._initialContent[side] || '') : '';
+            if (initial !== content) {
+                history.push(initial);
+                this[indexKey] = history.length - 1;
             }
         }
+
+        if (history.length > 0 && history[this[indexKey]] === content) return false;
+
+        // 丢弃当前位置之后的 redo 分支
+        history.splice(this[indexKey] + 1);
+        history.push(content);
+        if (history.length > CompareManager.MAX_HISTORY) {
+            history.splice(0, history.length - CompareManager.MAX_HISTORY);
+        }
+        this[indexKey] = history.length - 1;
+        return true;
     }
 
     undo() { this.handleHistoryOp('undo'); }
     redo() { this.handleHistoryOp('redo'); }
 
+    /**
+     * undo/redo 只作用于最后获得焦点/输入的一侧；没有活动侧时默认左侧。
+     */
     handleHistoryOp(op) {
         const isUndo = op === 'undo';
-        let changed = false;
-        const left = document.getElementById('leftJson');
-        const right = document.getElementById('rightJson');
+        // 先提交防抖中的待记录内容，确保撤销基于最新历史
+        this.flushHistory();
 
-        if (isUndo ? this.historyLeftIndex > 0 : this.historyLeftIndex < this.historyLeft.length - 1) {
-            this.historyLeftIndex += isUndo ? -1 : 1;
-            left.value = this.historyLeft[this.historyLeftIndex] || '';
-            changed = true;
-        }
-        if (isUndo ? this.historyRightIndex > 0 : this.historyRightIndex < this.historyRight.length - 1) {
-            this.historyRightIndex += isUndo ? -1 : 1;
-            right.value = this.historyRight[this.historyRightIndex] || '';
-            changed = true;
+        const side = this._activeSide === 'right' ? 'right' : 'left';
+        const area = document.getElementById(side === 'left' ? 'leftJson' : 'rightJson');
+        if (!area) return;
+
+        const history = side === 'left' ? this._historyLeft : this._historyRight;
+        const indexKey = side === 'left' ? 'historyLeftIndex' : 'historyRightIndex';
+        const canMove = isUndo ? this[indexKey] > 0 : this[indexKey] < history.length - 1;
+        const sideLabel = side === 'left' ? '左侧' : '右侧';
+
+        if (!canMove) {
+            this.app.layout.updateStatus(isUndo ? `没有可撤销的记录（${sideLabel}）` : `没有可重做的记录（${sideLabel}）`);
+            return;
         }
 
-        if (changed) {
-            this.app.layout.updateStatus(isUndo ? '已撤销（对比）' : '已重做（对比）');
-            this.app.saveToLocalStorage();
-            this.compareJSON({ silent: true });
-        }
+        this[indexKey] += isUndo ? -1 : 1;
+        area.value = history[this[indexKey]] ?? '';
+        this.updateLineNumbers(side, area, document.getElementById(side === 'left' ? 'leftJsonLines' : 'rightJsonLines'));
+        // 内容已变化，旧的对比高亮不再有效；不自动重跑对比，避免再次覆写撤销回来的原文
+        this.clearComparison();
+        this.app.saveToLocalStorage();
+        this.app.layout.updateStatus(isUndo ? `已撤销（${sideLabel}）` : `已重做（${sideLabel}）`);
     }
 
     loadDemoData() {
@@ -846,12 +1077,18 @@ export class CompareManager {
 
         const lArea = document.getElementById('leftJson');
         const rArea = document.getElementById('rightJson');
+        if (!lArea || !rArea) return;
+
+        // 覆写前先把当前内容立即入历史，保证加载示例后可撤销回原内容
+        this.recordHistory('left', lArea.value, { immediate: true });
+        this.recordHistory('right', rArea.value, { immediate: true });
+
         lArea.value = lStr;
         rArea.value = rStr;
 
         this.updateAllLineNumbers();
-        this.recordHistory('left', lStr);
-        this.recordHistory('right', rStr);
+        this.recordHistory('left', lStr, { immediate: true });
+        this.recordHistory('right', rStr, { immediate: true });
         this.app.layout.updateStatus('已加载复杂集合对比示例数据');
     }
 }

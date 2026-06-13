@@ -4,6 +4,14 @@ import { JSONRenderer } from '../JSONRenderer.js';
 export class FormatterManager {
     constructor(app) {
         this.app = app;
+        // 实时验证/预览防抖定时器
+        this.inputDebounceTimer = null;
+        // 防抖延迟（毫秒）
+        this.INPUT_DEBOUNCE_DELAY = 300;
+        // 超过此大小（1MB）时跳过自动预览更新
+        this.AUTO_PREVIEW_SIZE_LIMIT = 1024 * 1024;
+        // 上一次渲染的行号数量（行数不变时跳过 DOM 重建）
+        this.lastLineNumberCount = -1;
     }
 
     init() {
@@ -11,7 +19,6 @@ export class FormatterManager {
         document.getElementById('formatBtn').addEventListener('click', () => this.formatJSON());
         document.getElementById('compressBtn').addEventListener('click', () => this.compressJSON());
         document.getElementById('removeEscapeBtn').addEventListener('click', () => this.removeEscapeCharacters());
-        document.getElementById('smartRepairBtn').addEventListener('click', () => this.smartRepairJSON());
         const loadExampleBtn = document.getElementById('loadExampleBtn');
         if (loadExampleBtn) loadExampleBtn.addEventListener('click', () => this.loadExample());
 
@@ -20,11 +27,25 @@ export class FormatterManager {
         document.getElementById('collapseAll').addEventListener('click', () => this.collapseAll());
         document.getElementById('treeView').addEventListener('click', () => this.toggleTreeView());
 
-        // JSON编辑器实时验证
+        // JSON编辑器实时验证（300ms 防抖，避免每次键击都执行完整解析和重渲染）
         const jsonEditor = document.getElementById('jsonEditor');
-        jsonEditor.addEventListener('input', (e) => {
-            this.updateEditorInfo();
-            this.realTimeValidation(e.target.value);
+        jsonEditor.addEventListener('input', () => {
+            clearTimeout(this.inputDebounceTimer);
+            this.inputDebounceTimer = setTimeout(() => {
+                this.updateEditorInfo();
+                this.realTimeValidation(jsonEditor.value);
+            }, this.INPUT_DEBOUNCE_DELAY);
+        });
+
+        // 粘贴后若整体为合法 JSON 则自动格式化（非 JSON 静默跳过；内容过大跳过以免卡顿）
+        jsonEditor.addEventListener('paste', () => {
+            setTimeout(() => {
+                const val = jsonEditor.value.trim();
+                if (!val || val.length > this.AUTO_PREVIEW_SIZE_LIMIT) return;
+                try { JSON.parse(val); } catch (e) { return; }
+                this.formatJSON();
+                this.app.layout.updateStatus('已自动格式化粘贴的 JSON');
+            }, 0);
         });
         
         // 初始化行号
@@ -137,6 +158,7 @@ export class FormatterManager {
 
             const formatted = JSON.stringify(result, null, 2);
             editor.value = formatted;
+            this.clearEditorErrorState();
             this.updatePreview(formatted);
             this.app.addToHistory(formatted);
             this.app.layout.updateStatus(shouldDeepParse ? 'JSON格式化完成（递归）' : 'JSON格式化完成');
@@ -181,6 +203,7 @@ export class FormatterManager {
             const parsed = JSON.parse(input);
             const compressed = JSON.stringify(parsed);
             editor.value = compressed;
+            this.clearEditorErrorState();
             this.updatePreview(compressed);
             this.app.addToHistory(compressed);
             this.app.layout.updateStatus('JSON压缩完成');
@@ -206,40 +229,92 @@ export class FormatterManager {
         }
     }
 
+    /**
+     * 移除一层标准 JSON 转义符。
+     * 采用单个正则按匹配分发的单趟扫描，从左到右每个转义序列只处理一次，
+     * 避免链式 replace 的顺序问题（如 \\n 被两步替换成换行符、\\" 与 \" 互相干扰）。
+     * 支持：\\ \" \/ \b \f \n \r \t \uXXXX；无法识别的反斜杠序列原样保留。
+     */
     processEscapeCharacters(jsonString) {
-        try {
-            let cleaned = jsonString
-                .replace(/\\"/g, '"')
-                .replace(/\\\\/g, '\\')
-                .replace(/\\n/g, '\n')
-                .replace(/\\r/g, '\r')
-                .replace(/\\t/g, '\t')
-                .replace(/\\\//g, '/')
-                .replace(/\\b/g, '\b')
-                .replace(/\\f/g, '\f');
-            cleaned = cleaned.replace(/\\u([0-9a-fA-F]{4})/g, (match, hex) => {
-                return String.fromCharCode(parseInt(hex, 16));
-            });
-            return cleaned;
-        } catch (error) {
-            return jsonString;
-        }
+        return jsonString.replace(/\\(u[0-9a-fA-F]{4}|["\\/bfnrt])/g, (match, seq) => {
+            switch (seq) {
+                case '"': return '"';
+                case '\\': return '\\';
+                case '/': return '/';
+                case 'b': return '\b';
+                case 'f': return '\f';
+                case 'n': return '\n';
+                case 'r': return '\r';
+                case 't': return '\t';
+                default:
+                    // \uXXXX 形式
+                    return String.fromCharCode(parseInt(seq.slice(1), 16));
+            }
+        });
     }
 
     realTimeValidation(input) {
         if (!input.trim()) {
+            this.clearEditorErrorState();
             this.app.layout.hideErrorPanel();
             this.updatePreview('');
             return;
         }
+
+        // 内容过大时跳过自动预览更新（点击格式化按钮仍会全量执行）
+        if (input.length > this.AUTO_PREVIEW_SIZE_LIMIT) {
+            this.clearEditorErrorState();
+            const preview = document.getElementById('jsonPreview');
+            if (preview) {
+                preview.innerHTML = '<div style="color: var(--text-muted); font-style: italic;">内容较大，请点击格式化按钮手动更新预览</div>';
+            }
+            this.app.layout.updateStatus('内容超过 1MB，已暂停自动预览');
+            return;
+        }
+
         try {
             const parsed = JSON.parse(input);
+            this.clearEditorErrorState();
             this.app.layout.hideErrorPanel();
             const pretty = JSON.stringify(parsed, null, 2);
             this.updatePreview(pretty);
         } catch (error) {
-            // ignore
+            // 解析失败：给编辑器加错误状态样式，并在状态栏提示错误信息和大致位置
+            this.setEditorErrorState(error, input);
         }
+    }
+
+    /**
+     * 标记编辑器为非法 JSON 状态，并在状态栏显示解析错误及大致位置
+     */
+    setEditorErrorState(error, input) {
+        const editor = document.getElementById('jsonEditor');
+        if (editor) editor.classList.add('json-invalid');
+        const location = this.describeErrorLocation(error.message, input);
+        this.app.layout.updateStatus(`JSON 解析错误: ${error.message}${location}`);
+    }
+
+    /**
+     * 清除编辑器的非法 JSON 状态样式
+     */
+    clearEditorErrorState() {
+        const editor = document.getElementById('jsonEditor');
+        if (editor) editor.classList.remove('json-invalid');
+    }
+
+    /**
+     * 从解析错误信息中提取 position，换算出大致的行列位置
+     */
+    describeErrorLocation(message, input) {
+        // 新版 V8 的错误信息可能已自带 (line x column y)，避免重复追加
+        if (/line \d+/i.test(message)) return '';
+        const match = /position (\d+)/i.exec(message);
+        if (!match) return '';
+        const pos = Math.min(parseInt(match[1], 10), input.length);
+        const before = input.slice(0, pos);
+        const line = before.split('\n').length;
+        const column = pos - before.lastIndexOf('\n');
+        return `（约第 ${line} 行第 ${column} 列）`;
     }
 
     updatePreview(jsonString) {
@@ -342,113 +417,19 @@ export class FormatterManager {
             const gutter = document.getElementById('jsonEditorLines');
             if (!editor || !gutter) return;
             const count = editor.value.split('\n').length || 1;
-            let html = '';
-            for (let i = 1; i <= count; i++) {
-                html += `<div class="line-number">${i}</div>`;
+            // 行数不变时跳过 DOM 重建，只同步滚动位置
+            if (count !== this.lastLineNumberCount) {
+                let html = '';
+                for (let i = 1; i <= count; i++) {
+                    html += `<div class="line-number">${i}</div>`;
+                }
+                gutter.innerHTML = html;
+                this.lastLineNumberCount = count;
             }
-            gutter.innerHTML = html;
             gutter.scrollTop = editor.scrollTop;
-        } catch (e) {}
-    }
-
-    /**
-     * AI智能修复JSON (调用智谱AI)
-     */
-    async smartRepairJSON() {
-        const editor = document.getElementById('jsonEditor');
-        const input = editor.value.trim();
-
-        if (!input) {
-            this.app.layout.showError('修复失败', '输入内容为空');
-            return;
-        }
-
-        const apiKey = localStorage.getItem('zhipu_api_key');
-        const zhipuModel = localStorage.getItem('zhipu_model') || 'glm-5.1';
-        if (!apiKey) {
-            this.app.layout.showError('未配置 API Key', '请点击右上角设置按钮配置智谱AI API Key');
-            // 尝试打开设置面板 (如果 LayoutManager 有这个方法)
-            if (this.app.layout.openSettings) {
-                this.app.layout.openSettings();
-            }
-            return;
-        }
-
-        const btn = document.getElementById('smartRepairBtn');
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = `<svg class="animate-spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256"><path d="M232,128a104,104,0,0,1-20.8,61.95L192,170.82a88,88,0,0,0,0-85.64l19.2-19.13A104,104,0,0,1,232,128Z"></path></svg> 修复中...`;
-        this.app.layout.updateStatus('正在调用智谱AI进行智能修复...');
-
-        try {
-            const response = await fetch('https://open.bigmodel.cn/api/coding/paas/v4/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: zhipuModel,
-                    messages: [
-                        {
-                            "role": "system",
-                            "content": "你是一个JSON修复专家。你的任务是将用户提供的错误的JSON文本修复为标准、合法的JSON格式。请只输出修复后的JSON字符串，不要包含任何Markdown标记（如```json），不要包含任何解释性文字。必须确保输出是合法的JSON。如果输入已经是合法的，请原样返回。"
-                        },
-                        {
-                            "role": "user",
-                            "content": input
-                        }
-                    ],
-                    temperature: 0.1,
-                    top_p: 0.7,
-                    max_tokens: 4096
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error?.message || 'API 请求失败');
-            }
-
-            const data = await response.json();
-            const content = data.choices[0]?.message?.content;
-
-            if (content) {
-                // 清理可能的 markdown 标记
-                let cleaned = content.trim();
-                if (cleaned.startsWith('```json')) {
-                    cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-                } else if (cleaned.startsWith('```')) {
-                    cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
-                }
-
-                // 验证并格式化
-                try {
-                    const parsed = JSON.parse(cleaned);
-                    const formatted = JSON.stringify(parsed, null, 2);
-                    editor.value = formatted;
-                    this.updatePreview(formatted);
-                    this.app.addToHistory(formatted);
-                    this.updateEditorInfo();
-                    this.app.layout.updateStatus('智能修复成功');
-                    if (this.app.layout.showSuccess) {
-                        this.app.layout.showSuccess('智能修复成功', 'JSON 已成功修复并格式化。');
-                    }
-                } catch (e) {
-                    console.warn('AI output is not valid JSON:', cleaned);
-                    editor.value = cleaned;
-                    this.app.layout.showError('修复结果验证失败', 'AI返回的内容不是有效的JSON格式，已填充到编辑器供您检查。');
-                }
-            } else {
-                 throw new Error('AI 未返回有效内容');
-            }
-
-        } catch (error) {
-            console.error('Smart repair failed', error);
-            this.app.layout.showError('智能修复失败', error.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
+        } catch (e) {
+            console.warn('更新编辑器行号失败:', e);
         }
     }
+
 }

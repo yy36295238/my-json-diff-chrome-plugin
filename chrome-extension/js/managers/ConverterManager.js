@@ -17,6 +17,21 @@ export class ConverterManager {
 
         const modeSelect = document.getElementById('converterMode');
         if (modeSelect) modeSelect.addEventListener('change', (e) => this.handleModeChange(e.target.value));
+
+        // 仅 JSON 输入模式下，粘贴合法 JSON 后自动格式化（SQL/Java 输入模式不处理）
+        const converterInput = document.getElementById('converterInput');
+        if (converterInput) {
+            converterInput.addEventListener('paste', () => {
+                setTimeout(() => {
+                    const mode = document.getElementById('converterMode')?.value;
+                    if (mode !== 'json2java' && mode !== 'json2sql') return;
+                    const val = converterInput.value.trim();
+                    if (!val || val.length > 1024 * 1024) return;
+                    try { JSON.parse(val); } catch (e) { return; }
+                    this.formatInput();
+                }, 0);
+            });
+        }
     }
 
     formatInput() {
@@ -94,12 +109,13 @@ export class ConverterManager {
 
     jsonToJava(json, rootClassName) {
         const classes = [];
-        
+        const generatedNames = new Set(); // 已生成的类名，按类名去重，同名结构直接复用
+
         if (Array.isArray(json)) {
-            if (json.length > 0) this.generateRecursive(rootClassName, json[0], classes);
+            if (json.length > 0) this.generateRecursive(rootClassName, json[0], classes, generatedNames);
             else return '// 空数组';
         } else {
-            this.generateRecursive(rootClassName, json, classes);
+            this.generateRecursive(rootClassName, json, classes, generatedNames);
         }
 
         return `import lombok.Data;
@@ -108,12 +124,27 @@ import java.util.List;
 ` + classes.reverse().join('\n');
     }
 
-    generateRecursive(name, obj, classList) {
+    // 将 JSON key 转为合法的 Java 字段名：camelCase、去除非法字符、数字开头加下划线
+    toJavaFieldName(key) {
+        const parts = String(key).split(/[^a-zA-Z0-9]+/).filter(Boolean);
+        if (parts.length === 0) return '_field';
+        let name = parts
+            .map((p, i) => i === 0 ? p.charAt(0).toLowerCase() + p.slice(1) : Utils.capitalize(p))
+            .join('');
+        // 数字开头加下划线
+        if (/^[0-9]/.test(name)) name = '_' + name;
+        return name;
+    }
+
+    generateRecursive(name, obj, classList, generatedNames) {
         const className = Utils.capitalize(name);
+        // 同名类已生成过则直接复用，避免输出重复 class
+        if (generatedNames.has(className)) return;
+        generatedNames.add(className);
         let content = `@Data
 public class ${className} {
 `;
-        
+
         // Check if obj is valid object
         if (!obj || typeof obj !== 'object') {
              classList.push(`@Data
@@ -124,22 +155,23 @@ public class ${className} {}
 
         for (const key in obj) {
             if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
-            
+
             const val = obj[key];
+            const fieldName = this.toJavaFieldName(key); // 合法化字段名
             let type = 'Object';
-            
+
             if (val === null) {
                 type = 'Object';
             } else if (typeof val === 'object' && !Array.isArray(val)) {
-                const nName = Utils.capitalize(key);
-                this.generateRecursive(nName, val, classList);
+                const nName = Utils.capitalize(fieldName);
+                this.generateRecursive(nName, val, classList, generatedNames);
                 type = nName;
             } else if (Array.isArray(val)) {
                 if (val.length > 0) {
                     const itemVal = val[0];
                     if (typeof itemVal === 'object' && itemVal !== null && !Array.isArray(itemVal)) {
-                        const iName = Utils.capitalize(Utils.singularize(key));
-                        this.generateRecursive(iName, itemVal, classList);
+                        const iName = Utils.capitalize(Utils.singularize(fieldName));
+                        this.generateRecursive(iName, itemVal, classList, generatedNames);
                         type = `List<${iName}>`;
                     } else {
                         type = this.getJavaType(key, val, []);
@@ -150,7 +182,7 @@ public class ${className} {}
             } else {
                 type = this.getJavaType(key, val, []);
             }
-            content += `    private ${type} ${key};
+            content += `    private ${type} ${fieldName};
 `;
         }
         content += `}
@@ -163,7 +195,8 @@ public class ${className} {}
         const type = typeof val;
         if (type === 'string') return 'String';
         if (type === 'number') {
-            return Number.isInteger(val) ? (val > 2147483647 ? 'Long' : 'Integer') : 'Double';
+            // 整型判断需覆盖负方向，超出 int 范围用 Long，非整数用 Double
+            return Number.isInteger(val) ? ((val > 2147483647 || val < -2147483648) ? 'Long' : 'Integer') : 'Double';
         }
         if (type === 'boolean') return 'Boolean';
         
@@ -191,14 +224,18 @@ public class ${className} {}
         const cols = Array.from(keys);
         if (cols.length === 0) return '';
 
-        let sql = `INSERT INTO ${tableName} (${cols.join(', ')}) VALUES\n`;
+        // 表名/列名用反引号包裹，避免与关键字冲突
+        let sql = `INSERT INTO \`${tableName}\` (${cols.map(c => `\`${c}\``).join(', ')}) VALUES\n`;
         const vals = data.map(item => {
             const row = cols.map(col => {
                 const val = item[col];
                 if (val === null || val === undefined) return 'NULL';
                 if (typeof val === 'number') return val;
                 if (typeof val === 'boolean') return val ? 1 : 0;
-                return `'${String(val).replace(/'/g, "''")}'`;
+                // 对象/数组序列化为 JSON 字符串存储，避免输出 [object Object]
+                const strVal = typeof val === 'object' ? JSON.stringify(val) : String(val);
+                // 先转义反斜杠，再转义单引号
+                return `'${strVal.replace(/\\/g, '\\\\').replace(/'/g, "''")}'`;
             });
             return `(${row.join(', ')})`;
         });
@@ -280,7 +317,8 @@ public class ${className} {}
                     val = null;
                 } else if (rawVal.startsWith("'") && rawVal.endsWith("'")) {
                     val = rawVal.slice(1, -1).replace(/''/g, "'"); // 处理转义的单引号
-                } else if (!isNaN(rawVal)) {
+                } else if (String(Number(rawVal)) === rawVal.trim()) {
+                    // 仅在数字与原文完全一致时才转 Number，保住前导零（如 007）和超长数字 ID 的精度
                     val = Number(rawVal);
                 } else {
                     val = rawVal;
@@ -313,7 +351,10 @@ public class ${className} {}
         if (!isNaN(str) && !isNaN(parseFloat(str))) {
              // Handle cases like "123" but avoid dates/phones being parsed wrongly if they look like numbers?
              // toString usually outputs raw numbers.
-             return Number(str);
+             const num = Number(str);
+             // 超过安全整数范围会丢精度，保留为字符串
+             if (Math.abs(num) > Number.MAX_SAFE_INTEGER) return str;
+             return num;
         }
 
         // Handle Quoted strings (common in IntelliJ toString)
@@ -438,9 +479,13 @@ public class ${className} {}
     copyOutput() {
         const output = document.getElementById('converterOutput');
         if (output && output.value) {
-            output.select();
-            document.execCommand('copy');
-            this.app.layout.updateStatus('已复制');
+            // 与 FormatterManager 保持一致，使用 Clipboard API
+            navigator.clipboard.writeText(output.value).then(() => {
+                this.app.layout.updateStatus('已复制');
+            }).catch(err => {
+                console.error('Clipboard write failed', err);
+                this.app.layout.showError('复制失败', '无法写入剪贴板');
+            });
         }
     }
 }

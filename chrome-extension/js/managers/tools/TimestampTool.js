@@ -49,6 +49,23 @@ export class TimestampTool {
                 this.hideResult();
             });
         }
+
+        // 结果元素点击即复制
+        const resultText = document.getElementById('timeResultText');
+        if (resultText) {
+            resultText.style.cursor = 'pointer';
+            resultText.title = '点击复制';
+            resultText.addEventListener('click', async () => {
+                const text = resultText.textContent;
+                if (!text) return;
+                try {
+                    await navigator.clipboard.writeText(text);
+                    this.app.layout.showToast('已复制到剪贴板', 'success');
+                } catch (e) {
+                    this.app.layout.showError('复制失败: ' + e.message);
+                }
+            });
+        }
     }
 
     /**
@@ -63,28 +80,45 @@ export class TimestampTool {
             return;
         }
 
-        let ts = tsInput.value.trim();
-        // 自动检测秒 vs 毫秒
-        if (ts.length === 10) {
-            ts = parseInt(ts) * 1000;
-        } else {
-            ts = parseInt(ts);
-        }
+        const raw = tsInput.value.trim();
+        const num = Number(raw);
 
-        if (isNaN(ts)) {
+        if (raw === '' || !Number.isFinite(num)) {
             this.app.layout.showError('无效的时间戳格式');
             return;
         }
 
-        const date = new Date(ts);
-        if (date.toString() === 'Invalid Date') {
+        // 按数值量级自动检测单位（支持负时间戳，即1970年之前）
+        const abs = Math.abs(num);
+        let ms;
+        let unit;
+        if (abs < 1e11) {
+            // 秒级时间戳
+            ms = num * 1000;
+            unit = '秒';
+        } else if (abs < 1e14) {
+            // 毫秒级时间戳
+            ms = num;
+            unit = '毫秒';
+        } else if (abs < 1e17) {
+            // 微秒级时间戳，除以1000转为毫秒
+            ms = Math.round(num / 1000);
+            unit = '微秒';
+        } else {
+            this.app.layout.showError('时间戳数值过大，无法识别单位');
+            return;
+        }
+
+        const date = new Date(ms);
+        if (isNaN(date.getTime())) {
             this.app.layout.showError('无效的时间戳');
             return;
         }
 
         const formatted = this.formatDate(date);
+        const utcFormatted = this.formatUTCDate(date);
         if (dateInput) dateInput.value = formatted;
-        this.showResult(`转换结果: ${formatted}`);
+        this.showResult(`识别单位: ${unit}\n本地时间: ${formatted}\nUTC时间: ${utcFormatted}`);
     }
 
     /**
@@ -109,7 +143,7 @@ export class TimestampTool {
 
         const ts = date.getTime();
         if (tsInput) tsInput.value = ts;
-        this.showResult(`转换结果: ${ts}`);
+        this.showResult(`时间戳(毫秒): ${ts}\n时间戳(秒): ${Math.floor(ts / 1000)}\nUTC时间: ${this.formatUTCDate(date)}`);
     }
 
     /**
@@ -127,6 +161,20 @@ export class TimestampTool {
     }
 
     /**
+     * 格式化UTC日期
+     */
+    formatUTCDate(date) {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const hours = String(date.getUTCHours()).padStart(2, '0');
+        const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+
+    /**
      * 显示结果
      */
     showResult(text) {
@@ -134,6 +182,8 @@ export class TimestampTool {
         const p = document.getElementById('timeResultText');
         if (panel && p) {
             p.textContent = text;
+            // 支持多行结果展示
+            p.style.whiteSpace = 'pre-line';
             panel.style.display = 'block';
         }
     }

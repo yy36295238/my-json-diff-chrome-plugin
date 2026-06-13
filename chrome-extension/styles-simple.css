@@ -1147,3 +1147,64 @@ select.select-field {
     animation: spin 1s linear infinite;
     transform-origin: center;
 }
+
+/* ===== Toast 通知系统 ===== */
+.toast-container {
+    position: fixed;
+    bottom: 40px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 3000;
+    pointer-events: none;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 380px;
+    padding: 10px 14px;
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--primary);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+    pointer-events: auto;
+    animation: toast-in 0.25s ease;
+}
+
+.toast-success { border-left-color: var(--success); }
+.toast-error { border-left-color: var(--danger); }
+.toast-warning { border-left-color: var(--warning); }
+
+.toast-message {
+    word-break: break-word;
+    line-height: 1.4;
+}
+
+.toast-leaving {
+    opacity: 0;
+    transform: translateX(20px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* ===== 主题切换图标：按 data-theme 显示月亮/太阳 ===== */
+.theme-icon-sun { display: none; }
+[data-theme="dark"] .theme-icon-moon { display: none; }
+[data-theme="dark"] .theme-icon-sun { display: inline; }
+
+/* ===== 编辑器非法 JSON 状态 ===== */
+.code-editor.json-invalid {
+    border-color: var(--danger) !important;
+    box-shadow: inset 0 0 0 1px var(--danger);
+}

@@ -69,7 +69,7 @@ export class ObjectIdGeneratorTool {
         if (count > this.maxCount) {
             count = this.maxCount;
             countInput.value = this.maxCount;
-            this.app.layout.showToast(`数量已限制为最大 ${this.maxCount} 个`);
+            this.app.layout.showToast(`数量已限制为最大 ${this.maxCount} 个`, 'warning');
         }
 
         try {
@@ -86,7 +86,7 @@ export class ObjectIdGeneratorTool {
                 stats.textContent = `已生成 ${count} 个 ObjectId`;
             }
 
-            this.app.layout.showToast(`成功生成 ${count} 个 ObjectId`);
+            this.app.layout.showToast(`成功生成 ${count} 个 ObjectId`, 'success');
         } catch (error) {
             this.app.layout.showError('生成失败: ' + error.message);
         }
@@ -128,7 +128,7 @@ export class ObjectIdGeneratorTool {
     /**
      * 复制全部结果
      */
-    copyAll() {
+    async copyAll() {
         const output = document.getElementById('objectIdOutput');
 
         if (!output || !output.value.trim()) {
@@ -136,11 +136,12 @@ export class ObjectIdGeneratorTool {
             return;
         }
 
-        navigator.clipboard.writeText(output.value).then(() => {
-            this.app.layout.showToast('已复制到剪贴板');
-        }).catch(() => {
-            this.app.layout.showError('复制失败');
-        });
+        try {
+            await navigator.clipboard.writeText(output.value);
+            this.app.layout.showToast('已复制到剪贴板', 'success');
+        } catch (e) {
+            this.app.layout.showError('复制失败: ' + e.message);
+        }
     }
 
     /**

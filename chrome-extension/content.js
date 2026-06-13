@@ -162,9 +162,6 @@ function injectJSONToolPanel() {
         font-size: 12px;
     `;
 
-    // 添加事件监听器
-    document.getElementById = (id) => panel.querySelector(`#${id}`) || document.querySelector(`#${id}`);
-
     formatBtn.addEventListener('click', () => {
         try {
             const json = JSON.parse(textarea.value);

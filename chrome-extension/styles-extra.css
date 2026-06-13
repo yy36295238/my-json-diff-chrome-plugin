@@ -213,22 +213,21 @@
     z-index: 10;
 }
 
+/* 层叠顺序完全交给 JS（bringToFront/钉住）管理，CSS 不再插手 z-index，
+   否则 hover/拖拽的临时层级会与持久化的层级互相打架 */
 .note-card:hover {
     box-shadow: var(--shadow-lg);
     border-color: var(--border-focus);
-    z-index: 100; /* Bring to front on hover */
 }
 
 .note-card.dragging {
     box-shadow: var(--shadow-lg);
     opacity: 0.9;
     cursor: grabbing;
-    z-index: 1000 !important; /* Always on top while dragging */
 }
 
 .note-card.resizing {
     box-shadow: var(--shadow-lg);
-    z-index: 1000 !important;
     transition: none; /* Disable transition during resize for smoothness */
 }
 
@@ -240,6 +239,7 @@
 .note-header {
     height: 40px; /* Slightly taller for handle + input */
     border-bottom: 1px solid var(--border-color);
+    overflow: hidden; /* 兜底：极端情况下按钮裁切在卡片内，而不是溢出到卡片外 */
     display: flex;
     align-items: center;
     gap: 8px;
@@ -336,7 +336,7 @@
 
 .note-actions {
     display: flex;
-    gap: 4px; /* Slightly more gap */
+    gap: 3px; /* 8 个按钮较多，间距收紧避免挤占标题空间 */
     opacity: 0.6;
     transition: opacity 0.2s;
     flex-shrink: 0; /* Prevent actions container from shrinking */
@@ -522,4 +522,129 @@
 
 .empty-text {
     font-size: 14px;
+}
+
+/* ===== 便签暗色主题修复 =====
+   便签头部背景始终是 JS 内联的浅色 pastel，
+   文字必须固定使用深色，否则暗色主题下浅字叠浅底不可读 */
+.note-header .note-title-input { color: #1f2937; }
+.note-header .note-title-input::placeholder { color: rgba(31, 41, 55, 0.45); }
+.note-header .note-time { color: rgba(31, 41, 55, 0.6); }
+.note-header .drag-handle { color: rgba(31, 41, 55, 0.55); }
+.note-header .note-title-input:hover,
+.note-header .note-title-input:focus { background-color: rgba(255, 255, 255, 0.5); }
+
+/* =========================================
+   便签增强：筛选 / 钉住 / 状态点 / 动效
+   ========================================= */
+
+/* 工具栏新增颜色筛选条后内容变多，窄窗口允许换行 */
+.notes-toolbar {
+    flex-wrap: wrap;
+}
+
+/* 搜索/颜色筛选用显隐切换代替重建 DOM，必须压过卡片的内联定位样式 */
+.note-hidden {
+    display: none !important;
+}
+
+/* 新建便签的短暂高亮，帮助用户定位落点 */
+.note-card-flash {
+    animation: noteCardFlash 1s ease;
+}
+
+@keyframes noteCardFlash {
+    0% { box-shadow: 0 0 0 4px var(--primary-light, rgba(59, 130, 246, 0.45)), var(--shadow-lg); }
+    100% { box-shadow: var(--shadow-md); }
+}
+
+/* 颜色筛选条 */
+.notes-color-filter {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.notes-filter-all {
+    height: 22px;
+    padding: 0 10px;
+    font-size: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 11px;
+    background-color: var(--bg-input);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.notes-filter-all:hover {
+    color: var(--text-primary);
+    border-color: var(--border-focus);
+}
+
+.notes-filter-all.active {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.notes-filter-dot {
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(15, 23, 42, 0.18);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.notes-filter-dot:hover {
+    transform: translateY(-1px);
+}
+
+/* 选中色点用双层描边，浅色/深色主题下都看得清 */
+.notes-filter-dot.active {
+    box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--primary);
+}
+
+/* 钉住状态：图钉高亮 + 卡片描边提示 */
+.pin-btn.pinned {
+    color: var(--primary);
+    background-color: var(--bg-hover);
+    opacity: 1;
+}
+
+.note-card.note-pinned {
+    border-color: var(--primary);
+}
+
+/* 页脚右侧：JSON 状态点 + 相对时间。留出右边距避免被缩放手柄遮住 */
+.note-footer-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 12px;
+}
+
+.note-json-dot {
+    display: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.note-json-dot.valid {
+    display: inline-block;
+    background-color: #22c55e;
+}
+
+.note-json-dot.invalid {
+    display: inline-block;
+    background-color: #ef4444;
+}
+
+/* Pointer Events 拖拽需要禁用手柄上的浏览器默认触摸手势 */
+.drag-handle,
+.resize-handle {
+    touch-action: none;
 }

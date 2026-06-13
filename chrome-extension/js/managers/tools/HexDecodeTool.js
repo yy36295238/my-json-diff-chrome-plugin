@@ -12,6 +12,23 @@ export class HexDecodeTool {
      */
     init() {
         this.bindEvents();
+        this.setupPlaceholders();
+    }
+
+    /**
+     * 设置输入/输出框的占位提示（说明双向编解码方向）
+     * 解码: hexInput(16进制) → hexOutput(文本)
+     * 编码: hexOutput(文本) → hexInput(16进制)
+     */
+    setupPlaceholders() {
+        const hexInput = document.getElementById('hexInput');
+        const hexOutput = document.getElementById('hexOutput');
+        if (hexInput) {
+            hexInput.placeholder = '解码：在此输入16进制文本 (例如: 48 65 6C 6C 6F)；编码结果也将显示在此处...';
+        }
+        if (hexOutput) {
+            hexOutput.placeholder = '解码结果将显示在此处；编码：在此输入要编码的文本...';
+        }
     }
 
     /**
@@ -43,14 +60,15 @@ export class HexDecodeTool {
         }
 
         if (copyHexOutput) {
-            copyHexOutput.addEventListener('click', () => {
+            copyHexOutput.addEventListener('click', async () => {
                 const hexOutput = document.getElementById('hexOutput');
                 if (hexOutput && hexOutput.value) {
-                    navigator.clipboard.writeText(hexOutput.value).then(() => {
-                        this.app.layout.showToast('已复制到剪贴板');
-                    }).catch(() => {
-                        this.app.layout.showError('复制失败');
-                    });
+                    try {
+                        await navigator.clipboard.writeText(hexOutput.value);
+                        this.app.layout.showToast('已复制到剪贴板', 'success');
+                    } catch (e) {
+                        this.app.layout.showError('复制失败: ' + e.message);
+                    }
                 } else {
                     this.app.layout.showError('没有可复制的内容');
                 }
@@ -75,7 +93,7 @@ export class HexDecodeTool {
     }
 
     /**
-     * 16进制解码
+     * 16进制解码: hexInput(16进制) → hexOutput(文本)
      */
     hexDecode() {
         const hexInput = document.getElementById('hexInput');
@@ -83,7 +101,7 @@ export class HexDecodeTool {
         const charset = document.getElementById('hexCharset');
 
         if (!hexInput || !hexInput.value.trim()) {
-            this.app.layout.showError('请输入16进制文本');
+            this.app.layout.showError('请在上方输入框输入16进制文本');
             return;
         }
 
@@ -122,7 +140,7 @@ export class HexDecodeTool {
                 decoder = new TextDecoder(charsetValue);
             } catch (e) {
                 // 如果不支持该编码，回退到UTF-8
-                this.app.layout.showToast(`不支持${charsetValue}编码，使用UTF-8`);
+                this.app.layout.showToast(`不支持${charsetValue}编码，使用UTF-8`, 'warning');
                 decoder = new TextDecoder('utf-8');
             }
 
@@ -135,7 +153,7 @@ export class HexDecodeTool {
                 // 统计信息
                 const byteCount = bytes.length;
                 const charCount = decoded.length;
-                this.app.layout.showToast(`解码成功 (${byteCount}字节 → ${charCount}字符)`);
+                this.app.layout.showToast(`解码成功 (${byteCount}字节 → ${charCount}字符)`, 'success');
             }
         } catch (error) {
             this.app.layout.showError('解码失败: ' + error.message);
@@ -143,7 +161,7 @@ export class HexDecodeTool {
     }
 
     /**
-     * 文本编码为16进制
+     * 文本编码为16进制: hexOutput(文本) → hexInput(16进制)
      */
     hexEncode() {
         const hexInput = document.getElementById('hexInput');
@@ -151,7 +169,7 @@ export class HexDecodeTool {
         const charset = document.getElementById('hexCharset');
 
         if (!hexOutput || !hexOutput.value.trim()) {
-            this.app.layout.showError('请在结果区域输入要编码的文本');
+            this.app.layout.showError('请在下方文本框输入要编码的文本');
             return;
         }
 
@@ -164,7 +182,7 @@ export class HexDecodeTool {
                 encoder = new TextEncoder();
                 // TextEncoder只支持UTF-8
                 if (charsetValue !== 'utf-8') {
-                    this.app.layout.showError('编码功能仅支持UTF-8');
+                    this.app.layout.showToast(`编码功能仅支持UTF-8，已按UTF-8编码`, 'warning');
                 }
             } catch (e) {
                 this.app.layout.showError('编码器初始化失败');
@@ -187,7 +205,7 @@ export class HexDecodeTool {
 
             if (hexInput) {
                 hexInput.value = hexStr;
-                this.app.layout.showToast('编码成功');
+                this.app.layout.showToast(`编码成功 (${text.length}字符 → ${bytes.length}字节)`, 'success');
             }
         } catch (error) {
             this.app.layout.showError('编码失败: ' + error.message);
@@ -214,7 +232,7 @@ export class HexDecodeTool {
                 try {
                     const parsed = JSON.parse(content);
                     hexOutput.value = JSON.stringify(parsed, null, 2);
-                    this.app.layout.showToast('JSON格式化成功');
+                    this.app.layout.showToast('JSON格式化成功', 'success');
                     return;
                 } catch (e) {
                     // 不是有效的JSON，继续尝试XML
@@ -226,7 +244,7 @@ export class HexDecodeTool {
                 try {
                     const formatted = this.formatXML(content);
                     hexOutput.value = formatted;
-                    this.app.layout.showToast('XML格式化成功');
+                    this.app.layout.showToast('XML格式化成功', 'success');
                     return;
                 } catch (e) {
                     this.app.layout.showError('XML格式化失败: ' + e.message);

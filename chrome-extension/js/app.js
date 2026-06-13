@@ -24,22 +24,64 @@ class JSONToolApp {
         // Expose to window for inline HTML events
         window.jsonTool = this;
 
-        this.layout.init();
-        this.formatter.init();
-        this.compare.init();
-        this.converter.init();
-        this.otherTools.init();
-        this.notes.init();
+        // 各模块初始化相互隔离，单个模块出错不应中断整个应用
+        const managers = [
+            ['layout', this.layout],
+            ['formatter', this.formatter],
+            ['compare', this.compare],
+            ['converter', this.converter],
+            ['otherTools', this.otherTools],
+            ['notes', this.notes]
+        ];
+        managers.forEach(([name, manager]) => {
+            try {
+                manager.init();
+            } catch (e) {
+                console.error(`模块 ${name} 初始化失败:`, e);
+            }
+        });
 
         this.setupTheme();
+        this.setupKeyboardShortcuts();
         this.loadFromLocalStorage();
         this.layout.updateStatus('应用已就绪');
     }
 
     setupTheme() {
+        // 图标的月亮/太阳切换由 CSS 按 data-theme 控制，这里不覆盖按钮内容
         document.documentElement.setAttribute('data-theme', this.theme);
-        const btn = document.getElementById('themeToggle');
-        if (btn) btn.textContent = this.theme === 'light' ? '🌙' : '☀️';
+    }
+
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            // Cmd/Ctrl + Enter：执行当前页签的主操作
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                if (this.currentTab === 'formatter') {
+                    this.formatter.formatJSON?.();
+                } else if (this.currentTab === 'compare') {
+                    document.getElementById('compareBtn')?.click();
+                } else if (this.currentTab === 'converter') {
+                    document.getElementById('convertBtn')?.click();
+                }
+                return;
+            }
+
+            // Tab 键在代码编辑区插入两个空格，而不是跳走焦点
+            if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+                const t = e.target;
+                const isCodeArea = t.tagName === 'TEXTAREA' && (
+                    t.classList.contains('code-editor') ||
+                    t.classList.contains('hex-editor') ||
+                    t.classList.contains('multi-pane-textarea')
+                );
+                if (isCodeArea) {
+                    e.preventDefault();
+                    t.setRangeText('  ', t.selectionStart, t.selectionEnd, 'end');
+                    t.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+        });
     }
 
     toggleTheme() {
@@ -74,16 +116,33 @@ class JSONToolApp {
     }
 
     saveToLocalStorage() {
+        // 防抖：编辑过程中高频调用时合并写入，避免每次键击全量序列化
+        clearTimeout(this._saveTimer);
+        this._saveTimer = setTimeout(() => this._persistState(), 500);
+    }
+
+    _persistState() {
+        // 超大条目不持久化（仍保留在内存中可撤销），防止撑爆 localStorage 配额
+        const MAX_ENTRY = 200 * 1024;
+        const slim = (list) => (list || []).filter(item => (item.content || '').length <= MAX_ENTRY);
+        const buildData = (keep) => ({
+            history: slim(this.history).slice(-keep),
+            theme: this.theme,
+            compareHistoryLeft: slim(this.compare.historyLeft).slice(-keep),
+            compareHistoryRight: slim(this.compare.historyRight).slice(-keep)
+        });
+
         try {
-            const data = {
-                history: this.history,
-                theme: this.theme,
-                compareHistoryLeft: this.compare.historyLeft,
-                compareHistoryRight: this.compare.historyRight
-            };
-            localStorage.setItem('json-tool-state', JSON.stringify(data));
+            localStorage.setItem('json-tool-state', JSON.stringify(buildData(50)));
         } catch (e) {
-            console.error('Failed to save state', e);
+            // 配额超限：裁剪历史后重试一次，仍失败则提示用户
+            try {
+                localStorage.setItem('json-tool-state', JSON.stringify(buildData(10)));
+                this.layout.showToast?.('存储空间不足，已自动裁剪历史记录', 'warning');
+            } catch (e2) {
+                console.error('Failed to save state', e2);
+                this.layout.showToast?.('保存状态失败：存储空间不足', 'error');
+            }
         }
     }
 
@@ -96,7 +155,7 @@ class JSONToolApp {
                     this.history = data.history;
                     this.historyIndex = this.history.length - 1;
                 }
-                if (data.theme) this.theme = data.theme;
+                // 主题以 json-tool-theme 为唯一来源（setupTheme 已应用），这里不再覆盖
                 if (data.compareHistoryLeft) {
                     this.compare.historyLeft = data.compareHistoryLeft;
                     this.compare.historyLeftIndex = this.compare.historyLeft.length - 1;
@@ -123,6 +182,7 @@ class JSONToolApp {
         }
 
         document.getElementById('jsonEditor').value = '';
+        this.addToHistory('');
         this.formatter.updatePreview('');
         this.formatter.updateEditorInfo();
         this.layout.hideErrorPanel();
