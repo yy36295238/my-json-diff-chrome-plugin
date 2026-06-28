@@ -132,6 +132,106 @@
 }
 
 /* =========================================
+   解码工具子 tab（16进制 / Base64）
+   ========================================= */
+
+/* 解码视图改为纵向 flex，让子视图填满剩余高度 */
+#tool-decode.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.decode-subtabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 16px;
+    flex-shrink: 0;
+}
+
+.decode-subtab {
+    padding: 8px 16px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.decode-subtab:hover {
+    color: var(--text-primary);
+}
+
+.decode-subtab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+/* 子视图默认隐藏，激活时占满剩余高度 */
+.decode-subview {
+    display: none;
+    flex: 1;
+    min-height: 0;
+}
+
+.decode-subview.active {
+    display: block;
+    animation: fadeIn 0.2s ease;
+}
+
+/* =========================================
+   SQL 管理子 tab（复用解码子 tab 视觉）
+   ========================================= */
+
+#tool-sql.active {
+    display: flex;
+    flex-direction: column;
+}
+
+.sql-subtabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 16px;
+    flex-shrink: 0;
+}
+
+.sql-subtab {
+    padding: 8px 16px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.sql-subtab:hover {
+    color: var(--text-primary);
+}
+
+.sql-subtab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.sql-subview {
+    display: none;
+    flex: 1;
+    min-height: 0;
+}
+
+.sql-subview.active {
+    display: block;
+    animation: fadeIn 0.2s ease;
+}
+
+/* =========================================
    Notes Tab Styles
    ========================================= */
 

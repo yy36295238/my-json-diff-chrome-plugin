@@ -1,5 +1,6 @@
 import { TimestampTool } from './tools/TimestampTool.js';
-import { HexDecodeTool } from './tools/HexDecodeTool.js';
+import { DecodeTool } from './tools/DecodeTool.js';
+import { SqlManagerTool } from './tools/SqlManagerTool.js';
 import { ObjectIdGeneratorTool } from './tools/ObjectIdGeneratorTool.js';
 
 /**
@@ -29,15 +30,14 @@ export class OtherToolsManager {
         // 注册时间戳转换工具
         this.registerTool('timestamp', new TimestampTool(this.app));
 
-        // 注册16进制解码工具
-        this.registerTool('hexdecode', new HexDecodeTool(this.app));
+        // 注册解码工具（含16进制、Base64 子功能）
+        this.registerTool('decode', new DecodeTool(this.app));
+
+        // 注册SQL管理工具（含 SQL 格式化 子功能）
+        this.registerTool('sql', new SqlManagerTool(this.app));
 
         // 注册ObjectId生成工具
         this.registerTool('objectid', new ObjectIdGeneratorTool(this.app));
-
-        // 未来可以在这里添加更多工具
-        // this.registerTool('base64', new Base64Tool(this.app));
-        // this.registerTool('url-encode', new UrlEncodeTool(this.app));
     }
 
     /**
